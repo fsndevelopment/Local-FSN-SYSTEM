@@ -1,0 +1,269 @@
+{
+  "post_media_container": {
+    "description": "Main post media container (image/video)",
+    "evidence_path": "evidence/instagram/20250115/post_detail/",
+    "strategies": [
+      {
+        "type": "accessibility_id",
+        "value": "Video by instagram",
+        "confidence": 0.9,
+        "notes": "Specific to video posts - varies by media type and author"
+      },
+      {
+        "type": "ios_predicate",
+        "value": "name CONTAINS \"by instagram\"",
+        "confidence": 0.85,
+        "notes": "Pattern matching for media by specific user"
+      }
+    ],
+    "fallback_strategies": [
+      {
+        "type": "xpath",
+        "value": "//XCUIElementTypeCell[@name=\"media-cell\"]",
+        "confidence": 0.8,
+        "notes": "Media cell container"
+      },
+      {
+        "type": "ios_class_chain",
+        "value": "**/XCUIElementTypeCell[`name == \"media-cell\"`]",
+        "confidence": 0.75,
+        "notes": "Class chain for media cell"
+      },
+      {
+        "type": "xpath",
+        "value": "//XCUIElementTypeImage[@name=\"remote-image-view\"]",
+        "confidence": 0.7,
+        "notes": "Direct image element fallback"
+      }
+    ],
+    "verify_signals": [
+      {
+        "type": "element_enabled",
+        "expected": true
+      },
+      {
+        "type": "element_visible", 
+        "expected": true
+      }
+    ],
+    "recovery_actions": ["ensure_home", "close_modals"],
+    "timeout_ms": 3000,
+    "coordinates": {
+      "x": 0,
+      "y": 64,
+      "width": 375,
+      "height": 506
+    }
+  },
+  "post_grid_thumbnail": {
+    "description": "Post thumbnail in grid view for navigation",
+    "evidence_path": "evidence/instagram/20250115/post_grid/",
+    "strategies": [
+      {
+        "type": "ios_class_chain",
+        "value": "**/XCUIElementTypeImage[`name == \"image-view\"`][11]",
+        "confidence": 0.8,
+        "notes": "Specific image in grid - index will vary"
+      },
+      {
+        "type": "xpath",
+        "value": "(//XCUIElementTypeImage[@name=\"image-view\"])[11]",
+        "confidence": 0.75,
+        "notes": "XPath with index - needs dynamic calculation"
+      }
+    ],
+    "fallback_strategies": [
+      {
+        "type": "xpath",
+        "value": "//XCUIElementTypeButton[@name=\"media-thumbnail-cell\"]",
+        "confidence": 0.7,
+        "notes": "Generic thumbnail button"
+      },
+      {
+        "type": "xpath",
+        "value": "//XCUIElementTypeImage[@name=\"image-view\"]",
+        "confidence": 0.6,
+        "notes": "First available image view"
+      }
+    ],
+    "verify_signals": [
+      {
+        "type": "element_enabled",
+        "expected": true
+      },
+      {
+        "type": "element_visible", 
+        "expected": true
+      }
+    ],
+    "recovery_actions": ["ensure_home", "close_modals"],
+    "timeout_ms": 3000,
+    "notes": "Index-based selector - requires dynamic calculation in automation"
+  },
+  "post_header": {
+    "description": "Post header containing username and metadata",
+    "evidence_path": "evidence/instagram/20250115/post_detail/",
+    "strategies": [
+      {
+        "type": "accessibility_id",
+        "value": "header-view",
+        "confidence": 0.95,
+        "notes": "Primary strategy - reliable header container"
+      },
+      {
+        "type": "ios_predicate",
+        "value": "name == \"header-view\"",
+        "confidence": 0.9,
+        "notes": "iOS predicate fallback"
+      }
+    ],
+    "fallback_strategies": [
+      {
+        "type": "ios_class_chain",
+        "value": "**/XCUIElementTypeOther[`name == \"header-view\"`]",
+        "confidence": 0.85,
+        "notes": "Class chain fallback"
+      },
+      {
+        "type": "xpath",
+        "value": "//XCUIElementTypeOther[@name=\"header-view\"]",
+        "confidence": 0.8,
+        "notes": "XPath fallback"
+      },
+      {
+        "type": "xpath",
+        "value": "//XCUIElementTypeOther[contains(@value, \"Post by\")]",
+        "confidence": 0.7,
+        "notes": "Value-based header detection"
+      }
+    ],
+    "verify_signals": [
+      {
+        "type": "element_enabled",
+        "expected": true
+      },
+      {
+        "type": "element_visible", 
+        "expected": true
+      },
+      {
+        "type": "element_type",
+        "expected": "XCUIElementTypeOther"
+      }
+    ],
+    "recovery_actions": ["ensure_home", "close_modals"],
+    "timeout_ms": 3000,
+    "coordinates": {
+      "x": 0,
+      "y": 64,
+      "width": 375,
+      "height": 54
+    }
+  },
+  "username_in_post": {
+    "description": "Username link within post header",
+    "evidence_path": "evidence/instagram/20250115/post_detail/",
+    "strategies": [
+      {
+        "type": "xpath",
+        "value": "//XCUIElementTypeLink[@name=\"instagram\"]",
+        "confidence": 0.9,
+        "notes": "Direct username link - varies by author"
+      },
+      {
+        "type": "ios_predicate",
+        "value": "name == \"instagram\" AND type == \"XCUIElementTypeLink\"",
+        "confidence": 0.85,
+        "notes": "Predicate for username link"
+      }
+    ],
+    "fallback_strategies": [
+      {
+        "type": "xpath",
+        "value": "//XCUIElementTypeOther[@name=\"header-view\"]//XCUIElementTypeLink",
+        "confidence": 0.8,
+        "notes": "First link in header"
+      },
+      {
+        "type": "ios_class_chain",
+        "value": "**/XCUIElementTypeOther[`name == \"header-view\"`]/XCUIElementTypeOther/XCUIElementTypeOther/XCUIElementTypeOther[2]/XCUIElementTypeOther[1]",
+        "confidence": 0.7,
+        "notes": "Complex path to username element"
+      }
+    ],
+    "verify_signals": [
+      {
+        "type": "element_enabled",
+        "expected": true
+      },
+      {
+        "type": "element_visible", 
+        "expected": true
+      },
+      {
+        "type": "element_type",
+        "expected": "XCUIElementTypeLink"
+      }
+    ],
+    "recovery_actions": ["ensure_home", "close_modals"],
+    "timeout_ms": 3000,
+    "notes": "Username varies by post author - automation should extract dynamically"
+  },
+  "caption_text": {
+    "description": "Post caption text (visible after scrolling)",
+    "evidence_path": "evidence/instagram/20250115/post_detail/",
+    "strategies": [
+      {
+        "type": "accessibility_id",
+        "value": "instagram @ashaabanks (Asha Banks) has lived a lifetime onstage, and yet the multi-talented musician and actor is only just getting started. 🌟🎤⁣… more",
+        "confidence": 0.9,
+        "notes": "Specific caption text - varies by post"
+      },
+      {
+        "type": "ios_predicate",
+        "value": "name CONTAINS \"instagram\" AND name CONTAINS \"more\"",
+        "confidence": 0.8,
+        "notes": "Pattern for caption with 'more' link"
+      }
+    ],
+    "fallback_strategies": [
+      {
+        "type": "xpath",
+        "value": "//XCUIElementTypeStaticText[contains(@name, \"instagram\") and contains(@name, \"more\")]",
+        "confidence": 0.75,
+        "notes": "XPath pattern for caption"
+      },
+      {
+        "type": "xpath",
+        "value": "//XCUIElementTypeStaticText[contains(@name, \"…\")]",
+        "confidence": 0.7,
+        "notes": "Caption with ellipsis pattern"
+      },
+      {
+        "type": "xpath",
+        "value": "//XCUIElementTypeLink[@name=\"more\"]/../XCUIElementTypeStaticText",
+        "confidence": 0.65,
+        "notes": "Caption next to 'more' link"
+      }
+    ],
+    "verify_signals": [
+      {
+        "type": "element_enabled",
+        "expected": true
+      },
+      {
+        "type": "element_type",
+        "expected": "XCUIElementTypeStaticText"
+      }
+    ],
+    "recovery_actions": ["scroll_to_reveal", "ensure_home"],
+    "timeout_ms": 5000,
+    "coordinates": {
+      "x": 16,
+      "y": 618,
+      "width": 343,
+      "height": 52
+    },
+    "notes": "Requires scrolling to reveal - may not be visible initially"
+  }
+}

@@ -1,0 +1,18 @@
+# Force rebuild - asyncpg required for PostgreSQL
+fastapi
+uvicorn[standard]
+structlog
+pydantic
+pydantic-settings
+python-multipart
+websockets
+aiofiles
+sqlalchemy
+asyncpg
+selenium
+appium-python-client
+aiohttp
+httpx
+cryptography
+qrcode[pil]
+PyJWT

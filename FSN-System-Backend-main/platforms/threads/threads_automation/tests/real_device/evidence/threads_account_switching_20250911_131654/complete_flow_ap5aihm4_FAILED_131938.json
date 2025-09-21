@@ -1,0 +1,25 @@
+{
+  "action": "complete_flow_ap5aihm4",
+  "success": false,
+  "timestamp": "131938",
+  "data": {
+    "success": false,
+    "message": "Failed to launch Threads",
+    "data": {
+      "checkpoints": [
+        {
+          "success": false,
+          "message": "Threads launch error: type object 'By' has no attribute 'IOS_CLASS_CHAIN'",
+          "data": {
+            "checkpoint": {
+              "screenshot": "evidence/threads_account_switching_launch_threads_homepage_FAILED_131935.png",
+              "xml": "evidence/threads_account_switching_launch_threads_homepage_FAILED_131935.xml",
+              "timestamp": "131935",
+              "status": "FAILED"
+            }
+          }
+        }
+      ]
+    }
+  }
+}

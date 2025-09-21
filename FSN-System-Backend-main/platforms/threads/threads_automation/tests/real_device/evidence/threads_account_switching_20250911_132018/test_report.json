@@ -1,0 +1,10 @@
+{
+  "test_name": "threads_account_switching",
+  "timestamp": "2025-09-11T13:26:23.166891",
+  "summary": {
+    "total_tests": 8,
+    "successful": 2,
+    "failed": 6,
+    "success_rate": "25.0%"
+  }
+}

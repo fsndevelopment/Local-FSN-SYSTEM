@@ -1,0 +1,25 @@
+{
+  "action": "complete_flow_ap5aihm4",
+  "success": false,
+  "timestamp": "131606",
+  "data": {
+    "success": false,
+    "message": "Failed to launch Threads",
+    "data": {
+      "checkpoints": [
+        {
+          "success": false,
+          "message": "Threads launch error: type object 'By' has no attribute 'ACCESSIBILITY_ID'",
+          "data": {
+            "checkpoint": {
+              "screenshot": "evidence/threads_account_switching_launch_threads_homepage_FAILED_131603.png",
+              "xml": "evidence/threads_account_switching_launch_threads_homepage_FAILED_131603.xml",
+              "timestamp": "131603",
+              "status": "FAILED"
+            }
+          }
+        }
+      ]
+    }
+  }
+}

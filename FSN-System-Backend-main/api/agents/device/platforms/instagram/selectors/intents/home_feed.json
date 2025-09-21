@@ -1,0 +1,232 @@
+{
+  "main_feed_container": {
+    "description": "Main Instagram home feed collection view",
+    "evidence_path": "Appium Screenshots/USED ALREADY/",
+    "strategies": [
+      {
+        "type": "accessibility_id",
+        "value": "main-feed",
+        "confidence": 0.95,
+        "notes": "Primary strategy - main feed collection view"
+      },
+      {
+        "type": "xpath",
+        "value": "//XCUIElementTypeCollectionView[@name='main-feed']",
+        "confidence": 0.9,
+        "notes": "XPath fallback for main feed"
+      }
+    ],
+    "verify_signals": [
+      {
+        "type": "element_enabled",
+        "expected": true
+      },
+      {
+        "type": "element_visible", 
+        "expected": true
+      }
+    ],
+    "timeout_ms": 5000
+  },
+  "post_cell": {
+    "description": "Individual post cell in home feed",
+    "evidence_path": "Appium Screenshots/USED ALREADY/",
+    "strategies": [
+      {
+        "type": "accessibility_id",
+        "value": "media-cell",
+        "confidence": 0.95,
+        "notes": "Primary strategy - media cell container"
+      },
+      {
+        "type": "xpath",
+        "value": "//XCUIElementTypeCell[@name='media-cell']",
+        "confidence": 0.9,
+        "notes": "XPath for media cell"
+      }
+    ],
+    "verify_signals": [
+      {
+        "type": "element_enabled",
+        "expected": true
+      },
+      {
+        "type": "element_visible", 
+        "expected": true
+      }
+    ],
+    "timeout_ms": 3000
+  },
+  "post_clickable_area": {
+    "description": "Clickable area to open post details (first validated selector)",
+    "evidence_path": "Appium Screenshots/USED ALREADY/",
+    "strategies": [
+      {
+        "type": "ios_class_chain",
+        "value": "**/XCUIElementTypeCell[`name == \"media-cell\"`]/XCUIElementTypeOther/XCUIElementTypeOther/XCUIElementTypeOther[2]/XCUIElementTypeOther[3]/XCUIElementTypeOther[2]",
+        "confidence": 0.95,
+        "notes": "Validated selector for opening post details"
+      },
+      {
+        "type": "xpath",
+        "value": "//XCUIElementTypeCell[@name=\"media-cell\"]/XCUIElementTypeOther/XCUIElementTypeOther/XCUIElementTypeOther[2]/XCUIElementTypeOther[3]/XCUIElementTypeOther[2]",
+        "confidence": 0.9,
+        "notes": "XPath version of validated selector"
+      }
+    ],
+    "fallback_strategies": [
+      {
+        "type": "ios_class_chain",
+        "value": "**/XCUIElementTypeCell[`name == \"media-cell\"`]/XCUIElementTypeOther/XCUIElementTypeOther/XCUIElementTypeOther[2]/XCUIElementTypeOther[3]/XCUIElementTypeOther[5]",
+        "confidence": 0.9,
+        "notes": "Alternative validated selector for post opening"
+      },
+      {
+        "type": "xpath",
+        "value": "//XCUIElementTypeCell[@name=\"media-cell\"]/XCUIElementTypeOther/XCUIElementTypeOther/XCUIElementTypeOther[2]/XCUIElementTypeOther[3]/XCUIElementTypeOther[5]",
+        "confidence": 0.85,
+        "notes": "XPath alternative for post opening"
+      }
+    ],
+    "verify_signals": [
+      {
+        "type": "element_enabled",
+        "expected": true
+      },
+      {
+        "type": "element_visible", 
+        "expected": true
+      }
+    ],
+    "timeout_ms": 3000
+  },
+  "post_header": {
+    "description": "Post header containing user info",
+    "evidence_path": "Appium Screenshots/USED ALREADY/",
+    "strategies": [
+      {
+        "type": "accessibility_id",
+        "value": "header-view",
+        "confidence": 0.95,
+        "notes": "Post header container from XML evidence"
+      },
+      {
+        "type": "xpath",
+        "value": "//XCUIElementTypeOther[@name='header-view']",
+        "confidence": 0.9,
+        "notes": "XPath for post header"
+      }
+    ],
+    "verify_signals": [
+      {
+        "type": "element_enabled",
+        "expected": true
+      },
+      {
+        "type": "element_visible", 
+        "expected": true
+      }
+    ],
+    "timeout_ms": 3000
+  },
+  "like_button_home_feed": {
+    "description": "Like button in home feed context",
+    "evidence_path": "Appium Screenshots/USED ALREADY/",
+    "strategies": [
+      {
+        "type": "accessibility_id",
+        "value": "like-button",
+        "confidence": 0.95,
+        "notes": "Validated like button selector for home feed"
+      },
+      {
+        "type": "ios_class_chain",
+        "value": "**/XCUIElementTypeButton[`name == \"like-button\"`]",
+        "confidence": 0.9,
+        "notes": "Class chain for like button"
+      },
+      {
+        "type": "ios_predicate",
+        "value": "name == \"like-button\"",
+        "confidence": 0.85,
+        "notes": "Predicate for like button"
+      },
+      {
+        "type": "xpath",
+        "value": "//XCUIElementTypeButton[@name=\"like-button\"]",
+        "confidence": 0.8,
+        "notes": "XPath for like button"
+      }
+    ],
+    "state_detection": {
+      "unliked": {
+        "accessibility_indicators": ["like-button"],
+        "notes": "Button shows like-button when post is not liked"
+      },
+      "liked": {
+        "accessibility_indicators": ["like-button"],
+        "notes": "Same selector but state changes internally"
+      }
+    },
+    "verify_signals": [
+      {
+        "type": "element_enabled",
+        "expected": true
+      },
+      {
+        "type": "element_visible", 
+        "expected": true
+      },
+      {
+        "type": "element_type",
+        "expected": "XCUIElementTypeButton"
+      }
+    ],
+    "timeout_ms": 3000
+  },
+  "back_button": {
+    "description": "Back button to close post detail view",
+    "evidence_path": "Appium Screenshots/USED ALREADY/",
+    "strategies": [
+      {
+        "type": "accessibility_id",
+        "value": "back-button",
+        "confidence": 0.95,
+        "notes": "Validated back button selector"
+      },
+      {
+        "type": "ios_class_chain",
+        "value": "**/XCUIElementTypeButton[`name == \"back-button\"`]",
+        "confidence": 0.9,
+        "notes": "Class chain for back button"
+      },
+      {
+        "type": "ios_predicate",
+        "value": "name == \"back-button\"",
+        "confidence": 0.85,
+        "notes": "Predicate for back button"
+      },
+      {
+        "type": "xpath",
+        "value": "//XCUIElementTypeButton[@name=\"back-button\"]",
+        "confidence": 0.8,
+        "notes": "XPath for back button"
+      }
+    ],
+    "verify_signals": [
+      {
+        "type": "element_enabled",
+        "expected": true
+      },
+      {
+        "type": "element_visible", 
+        "expected": true
+      },
+      {
+        "type": "element_type",
+        "expected": "XCUIElementTypeButton"
+      }
+    ],
+    "timeout_ms": 3000
+  }
+}

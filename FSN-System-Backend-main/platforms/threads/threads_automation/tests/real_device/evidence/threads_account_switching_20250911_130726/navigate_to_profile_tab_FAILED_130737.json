@@ -1,0 +1,10 @@
+{
+  "action": "navigate_to_profile_tab",
+  "success": false,
+  "timestamp": "130737",
+  "data": {
+    "success": false,
+    "message": "Profile navigation error: 'df44ce18dfdd9d0ffd2420fb9fc0176a7b6bd64e'",
+    "data": {}
+  }
+}

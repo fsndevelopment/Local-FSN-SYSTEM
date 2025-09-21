@@ -1,0 +1,6 @@
+@echo off
+echo Starting FSN Local Agent...
+set BACKEND_URL=https://fsn-system-backend.onrender.com
+set LOG_LEVEL=Device ae6f609c40f74faeadc5a83c8c96bf8c6d0b3ccf not found in capabilities, trying to discover...
+node agent.js
+pause

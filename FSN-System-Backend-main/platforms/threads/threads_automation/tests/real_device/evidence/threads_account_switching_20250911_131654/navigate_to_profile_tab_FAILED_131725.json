@@ -1,0 +1,10 @@
+{
+  "action": "navigate_to_profile_tab",
+  "success": false,
+  "timestamp": "131725",
+  "data": {
+    "success": false,
+    "message": "Profile navigation error: type object 'By' has no attribute 'IOS_CLASS_CHAIN'",
+    "data": {}
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "action": "get_available_accounts",
+  "success": true,
+  "timestamp": "131821",
+  "data": {
+    "success": true,
+    "message": "Found 0 available accounts",
+    "data": {
+      "accounts": []
+    }
+  }
+}

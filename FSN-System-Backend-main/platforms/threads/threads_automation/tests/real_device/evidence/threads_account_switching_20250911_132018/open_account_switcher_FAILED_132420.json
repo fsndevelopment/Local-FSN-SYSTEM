@@ -1,0 +1,17 @@
+{
+  "action": "open_account_switcher",
+  "success": false,
+  "timestamp": "132420",
+  "data": {
+    "success": false,
+    "message": "Username button not found to open account switcher",
+    "data": {
+      "checkpoint": {
+        "screenshot": "evidence/threads_account_switching_open_account_switcher_FAILED_132417.png",
+        "xml": "evidence/threads_account_switching_open_account_switcher_FAILED_132417.xml",
+        "timestamp": "132417",
+        "status": "FAILED"
+      }
+    }
+  }
+}

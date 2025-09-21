@@ -1,0 +1,452 @@
+{
+  "actions_container": {
+    "description": "Container for all post action buttons",
+    "evidence_path": "evidence/instagram/20250115/post_detail/",
+    "strategies": [
+      {
+        "type": "accessibility_id",
+        "value": "action-cell",
+        "confidence": 0.95,
+        "notes": "Primary strategy - reliable actions container"
+      },
+      {
+        "type": "ios_predicate",
+        "value": "name == \"action-cell\"",
+        "confidence": 0.9,
+        "notes": "iOS predicate fallback"
+      }
+    ],
+    "fallback_strategies": [
+      {
+        "type": "ios_class_chain",
+        "value": "**/XCUIElementTypeCell[`name == \"action-cell\"`]",
+        "confidence": 0.85,
+        "notes": "Class chain fallback"
+      },
+      {
+        "type": "xpath",
+        "value": "//XCUIElementTypeCell[@name=\"action-cell\"]",
+        "confidence": 0.8,
+        "notes": "XPath fallback"
+      }
+    ],
+    "verify_signals": [
+      {
+        "type": "element_enabled",
+        "expected": true
+      },
+      {
+        "type": "element_visible", 
+        "expected": true
+      },
+      {
+        "type": "element_type",
+        "expected": "XCUIElementTypeCell"
+      }
+    ],
+    "recovery_actions": ["ensure_home", "close_modals"],
+    "timeout_ms": 3000,
+    "coordinates": {
+      "x": 0,
+      "y": 570,
+      "width": 375,
+      "height": 48
+    }
+  },
+  "like_button": {
+    "description": "Like button (heart icon) - REAL DEVICE VERIFIED 2025-01-15",
+    "evidence_path": "evidence/instagram/20250115/post_detail/",
+    "strategies": [
+      {
+        "type": "accessibility_id",
+        "value": "like-button",
+        "confidence": 0.98,
+        "notes": "CONFIRMED WORKING - Real device verified Jan 15, 2025"
+      },
+      {
+        "type": "ios_predicate",
+        "value": "name == \"like-button\"",
+        "confidence": 0.95,
+        "notes": "CONFIRMED WORKING - iOS predicate verified"
+      }
+    ],
+    "fallback_strategies": [
+      {
+        "type": "ios_class_chain",
+        "value": "**/XCUIElementTypeButton[`name == \"like-button\"`]",
+        "confidence": 0.85,
+        "notes": "Class chain fallback"
+      },
+      {
+        "type": "xpath",
+        "value": "//XCUIElementTypeButton[@name=\"like-button\"]",
+        "confidence": 0.8,
+        "notes": "XPath fallback"
+      },
+      {
+        "type": "xpath",
+        "value": "//XCUIElementTypeButton[@label=\"Like\"]",
+        "confidence": 0.75,
+        "notes": "Label-based fallback"
+      }
+    ],
+    "verify_signals": [
+      {
+        "type": "element_enabled",
+        "expected": true
+      },
+      {
+        "type": "element_visible", 
+        "expected": true
+      },
+      {
+        "type": "element_type",
+        "expected": "XCUIElementTypeButton"
+      }
+    ],
+    "recovery_actions": ["ensure_home", "close_modals"],
+    "timeout_ms": 3000,
+    "coordinates": {
+      "x": 6,
+      "y": 570,
+      "width": 40,
+      "height": 48
+    }
+  },
+  "like_count_button": {
+    "description": "Like count display button",
+    "evidence_path": "evidence/instagram/20250115/post_detail/",
+    "strategies": [
+      {
+        "type": "accessibility_id",
+        "value": "like-count-button",
+        "confidence": 0.95,
+        "notes": "Primary strategy - like count button"
+      },
+      {
+        "type": "ios_predicate",
+        "value": "name == \"like-count-button\"",
+        "confidence": 0.9,
+        "notes": "iOS predicate fallback"
+      }
+    ],
+    "fallback_strategies": [
+      {
+        "type": "xpath",
+        "value": "//XCUIElementTypeButton[@name=\"like-count-button\"]",
+        "confidence": 0.8,
+        "notes": "XPath fallback"
+      },
+      {
+        "type": "xpath",
+        "value": "//XCUIElementTypeButton[contains(@label, \"likes\")]",
+        "confidence": 0.75,
+        "notes": "Label pattern for likes count"
+      }
+    ],
+    "verify_signals": [
+      {
+        "type": "element_enabled",
+        "expected": true
+      },
+      {
+        "type": "element_visible", 
+        "expected": true
+      },
+      {
+        "type": "element_type",
+        "expected": "XCUIElementTypeButton"
+      }
+    ],
+    "recovery_actions": ["ensure_home", "close_modals"],
+    "timeout_ms": 3000,
+    "coordinates": {
+      "x": 46,
+      "y": 585,
+      "width": 42,
+      "height": 18
+    }
+  },
+  "comment_button": {
+    "description": "Comment button",
+    "evidence_path": "evidence/instagram/20250115/post_detail/",
+    "strategies": [
+      {
+        "type": "accessibility_id",
+        "value": "comment-button",
+        "confidence": 0.95,
+        "notes": "Primary strategy - reliable comment button"
+      },
+      {
+        "type": "ios_predicate",
+        "value": "name == \"comment-button\"",
+        "confidence": 0.9,
+        "notes": "iOS predicate fallback"
+      }
+    ],
+    "fallback_strategies": [
+      {
+        "type": "ios_class_chain",
+        "value": "**/XCUIElementTypeButton[`name == \"comment-button\"`]",
+        "confidence": 0.85,
+        "notes": "Class chain fallback"
+      },
+      {
+        "type": "xpath",
+        "value": "//XCUIElementTypeButton[@name=\"comment-button\"]",
+        "confidence": 0.8,
+        "notes": "XPath fallback"
+      },
+      {
+        "type": "xpath",
+        "value": "//XCUIElementTypeButton[@label=\"Comment\"]",
+        "confidence": 0.75,
+        "notes": "Label-based fallback"
+      }
+    ],
+    "verify_signals": [
+      {
+        "type": "element_enabled",
+        "expected": true
+      },
+      {
+        "type": "element_visible", 
+        "expected": true
+      },
+      {
+        "type": "element_type",
+        "expected": "XCUIElementTypeButton"
+      }
+    ],
+    "recovery_actions": ["ensure_home", "close_modals"],
+    "timeout_ms": 3000,
+    "coordinates": {
+      "x": 88,
+      "y": 570,
+      "width": 40,
+      "height": 48
+    }
+  },
+  "comment_count_button": {
+    "description": "Comment count display button",
+    "evidence_path": "evidence/instagram/20250115/post_detail/",
+    "strategies": [
+      {
+        "type": "accessibility_id",
+        "value": "comment-count-button",
+        "confidence": 0.95,
+        "notes": "Primary strategy - comment count button"
+      },
+      {
+        "type": "ios_predicate",
+        "value": "name == \"comment-count-button\"",
+        "confidence": 0.9,
+        "notes": "iOS predicate fallback"
+      }
+    ],
+    "fallback_strategies": [
+      {
+        "type": "xpath",
+        "value": "//XCUIElementTypeButton[@name=\"comment-count-button\"]",
+        "confidence": 0.8,
+        "notes": "XPath fallback"
+      },
+      {
+        "type": "xpath",
+        "value": "//XCUIElementTypeButton[contains(@label, \"comments\")]",
+        "confidence": 0.75,
+        "notes": "Label pattern for comments count"
+      }
+    ],
+    "verify_signals": [
+      {
+        "type": "element_enabled",
+        "expected": true
+      },
+      {
+        "type": "element_visible", 
+        "expected": true
+      },
+      {
+        "type": "element_type",
+        "expected": "XCUIElementTypeButton"
+      }
+    ],
+    "recovery_actions": ["ensure_home", "close_modals"],
+    "timeout_ms": 3000,
+    "coordinates": {
+      "x": 128,
+      "y": 585,
+      "width": 40,
+      "height": 18
+    }
+  },
+  "share_button": {
+    "description": "Share/Send button",
+    "evidence_path": "evidence/instagram/20250115/post_detail/",
+    "strategies": [
+      {
+        "type": "accessibility_id",
+        "value": "send-button",
+        "confidence": 0.95,
+        "notes": "Primary strategy - reliable share button"
+      },
+      {
+        "type": "ios_predicate",
+        "value": "name == \"send-button\"",
+        "confidence": 0.9,
+        "notes": "iOS predicate fallback"
+      }
+    ],
+    "fallback_strategies": [
+      {
+        "type": "ios_class_chain",
+        "value": "**/XCUIElementTypeButton[`name == \"send-button\"`]",
+        "confidence": 0.85,
+        "notes": "Class chain fallback"
+      },
+      {
+        "type": "xpath",
+        "value": "//XCUIElementTypeButton[@name=\"send-button\"]",
+        "confidence": 0.8,
+        "notes": "XPath fallback"
+      },
+      {
+        "type": "xpath",
+        "value": "//XCUIElementTypeButton[@label=\"Send\"]",
+        "confidence": 0.75,
+        "notes": "Label-based fallback"
+      }
+    ],
+    "verify_signals": [
+      {
+        "type": "element_enabled",
+        "expected": true
+      },
+      {
+        "type": "element_visible", 
+        "expected": true
+      },
+      {
+        "type": "element_type",
+        "expected": "XCUIElementTypeButton"
+      }
+    ],
+    "recovery_actions": ["ensure_home", "close_modals"],
+    "timeout_ms": 3000,
+    "coordinates": {
+      "x": 235,
+      "y": 570,
+      "width": 40,
+      "height": 48
+    }
+  },
+  "repost_button": {
+    "description": "Repost button",
+    "evidence_path": "evidence/instagram/20250115/post_detail/",
+    "strategies": [
+      {
+        "type": "accessibility_id",
+        "value": "repost-button",
+        "confidence": 0.95,
+        "notes": "Primary strategy - repost button"
+      },
+      {
+        "type": "ios_predicate",
+        "value": "name == \"repost-button\"",
+        "confidence": 0.9,
+        "notes": "iOS predicate fallback"
+      }
+    ],
+    "fallback_strategies": [
+      {
+        "type": "xpath",
+        "value": "//XCUIElementTypeButton[@name=\"repost-button\"]",
+        "confidence": 0.8,
+        "notes": "XPath fallback"
+      },
+      {
+        "type": "xpath",
+        "value": "//XCUIElementTypeButton[@label=\"Repost\"]",
+        "confidence": 0.75,
+        "notes": "Label-based fallback"
+      }
+    ],
+    "verify_signals": [
+      {
+        "type": "element_enabled",
+        "expected": true
+      },
+      {
+        "type": "element_visible", 
+        "expected": true
+      },
+      {
+        "type": "element_type",
+        "expected": "XCUIElementTypeButton"
+      }
+    ],
+    "recovery_actions": ["ensure_home", "close_modals"],
+    "timeout_ms": 3000,
+    "coordinates": {
+      "x": 168,
+      "y": 570,
+      "width": 40,
+      "height": 48
+    }
+  },
+  "save_button": {
+    "description": "Save/Bookmark button",
+    "evidence_path": "evidence/instagram/20250115/post_detail/",
+    "strategies": [
+      {
+        "type": "accessibility_id",
+        "value": "save-button",
+        "confidence": 0.95,
+        "notes": "Primary strategy - save button"
+      },
+      {
+        "type": "ios_predicate",
+        "value": "name == \"save-button\"",
+        "confidence": 0.9,
+        "notes": "iOS predicate fallback"
+      }
+    ],
+    "fallback_strategies": [
+      {
+        "type": "xpath",
+        "value": "//XCUIElementTypeButton[@name=\"save-button\"]",
+        "confidence": 0.8,
+        "notes": "XPath fallback"
+      },
+      {
+        "type": "xpath",
+        "value": "//XCUIElementTypeButton[@label=\"Save\"]",
+        "confidence": 0.75,
+        "notes": "Label-based fallback"
+      }
+    ],
+    "verify_signals": [
+      {
+        "type": "element_enabled",
+        "expected": true
+      },
+      {
+        "type": "element_visible", 
+        "expected": true
+      },
+      {
+        "type": "element_type",
+        "expected": "XCUIElementTypeButton"
+      }
+    ],
+    "recovery_actions": ["ensure_home", "close_modals"],
+    "timeout_ms": 3000,
+    "coordinates": {
+      "x": 329,
+      "y": 570,
+      "width": 40,
+      "height": 48
+    }
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "action": "navigate_to_profile_tab",
+  "success": false,
+  "timestamp": "131412",
+  "data": {
+    "success": false,
+    "message": "Profile navigation error: type object 'By' has no attribute 'ACCESSIBILITY_ID'",
+    "data": {}
+  }
+}

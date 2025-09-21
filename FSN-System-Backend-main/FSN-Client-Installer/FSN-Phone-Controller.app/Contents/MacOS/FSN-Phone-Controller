@@ -1,0 +1,72 @@
+#!/bin/bash
+
+# FSN Phone Controller - Mac App
+# This app connects your iPhone to the FSN cloud system
+
+echo "🍎 FSN Phone Controller Starting..."
+echo "=================================="
+
+# Get the directory where this app is located
+APP_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+SCRIPT_DIR="$( cd "$APP_DIR/../../.." &> /dev/null && pwd )"
+
+# Check if Python is installed
+if ! command -v python3 &> /dev/null; then
+    echo "❌ Python 3 is not installed. Please install Python 3 first:"
+    echo "   Visit: https://www.python.org/downloads/"
+    echo ""
+    echo "Press any key to exit..."
+    read -n 1
+    exit 1
+fi
+
+# Check if pip is installed
+if ! command -v pip3 &> /dev/null; then
+    echo "❌ pip3 is not installed. Please install pip3 first."
+    echo ""
+    echo "Press any key to exit..."
+    read -n 1
+    exit 1
+fi
+
+# Create FSN directory
+FSN_DIR="$HOME/FSN-Phone-Controller"
+mkdir -p "$FSN_DIR"
+
+# Check if this is the first run
+if [ ! -f "$FSN_DIR/backend/requirements.txt" ]; then
+    echo "🔧 First time setup - downloading FSN backend..."
+    
+    # Download the backend code
+    cd "$FSN_DIR"
+    curl -L -o fsn-backend.zip "https://github.com/fsndevelopment/FSN-System-Backend/archive/refs/heads/main.zip"
+    unzip -q fsn-backend.zip
+    mv FSN-System-Backend-main backend
+    rm fsn-backend.zip
+    
+    echo "📦 Installing Python dependencies..."
+    cd backend
+    pip3 install -r requirements.txt
+    
+    echo "✅ Setup complete!"
+fi
+
+# Change to the backend directory
+cd "$FSN_DIR/backend"
+
+# Get the local IP address
+LOCAL_IP=$(ifconfig | grep "inet " | grep -v 127.0.0.1 | awk '{print $2}' | head -1)
+
+echo ""
+echo "🚀 Starting FSN Phone Controller..."
+echo "📱 Your iPhone will be accessible at: http://$LOCAL_IP:8000"
+echo "🌐 Frontend URL: https://fsndevelopment.com"
+echo ""
+echo "⚠️  Make sure your iPhone is connected via USB and trusted!"
+echo "⚠️  Keep this window open while using the system!"
+echo ""
+echo "Press Ctrl+C to stop the service"
+echo ""
+
+# Start the backend
+python3 -m uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload

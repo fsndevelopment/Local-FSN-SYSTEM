@@ -1,0 +1,37 @@
+{
+  "action": "complete_flow_ap5aihm4",
+  "success": false,
+  "timestamp": "132620",
+  "data": {
+    "success": false,
+    "message": "Failed to navigate to profile tab",
+    "data": {
+      "checkpoints": [
+        {
+          "success": true,
+          "message": "Threads launched using bundle ID fallback but homepage not confirmed",
+          "data": {
+            "checkpoint": {
+              "screenshot": "evidence/threads_account_switching_launch_threads_homepage_SUCCESS_132529.png",
+              "xml": "evidence/threads_account_switching_launch_threads_homepage_SUCCESS_132529.xml",
+              "timestamp": "132529",
+              "status": "SUCCESS"
+            }
+          }
+        },
+        {
+          "success": false,
+          "message": "Profile tab not found",
+          "data": {
+            "checkpoint": {
+              "screenshot": "evidence/threads_account_switching_navigate_to_profile_tab_FAILED_132617.png",
+              "xml": "evidence/threads_account_switching_navigate_to_profile_tab_FAILED_132617.xml",
+              "timestamp": "132617",
+              "status": "FAILED"
+            }
+          }
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,84 @@
+# Dependencies
+node_modules/
+api/venv/
+
+# Environment files
+.env
+.env.local
+.env.production
+.env.test
+api/.env
+api/.env.production
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+api/fsn_appium_farm.db
+api/test.db
+
+# Build outputs
+.next/
+dist/
+build/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Cache directories
+.npm/
+.yarn/
+.cache/
+.parcel-cache/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+api/__pycache__/
+api/**/__pycache__/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+.tmp/
+
+# Coverage reports
+coverage/
+.nyc_output/
+.coverage
+
+# Test files (keep structure, ignore data)
+api/test_data/
+api/uploads/
+
+# Production deployment
+api/deployment/.env.production

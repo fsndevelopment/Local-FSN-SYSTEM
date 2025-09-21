@@ -1,0 +1,110 @@
+{
+  "search_field": {
+    "description": "Main search input field on Instagram search screen",
+    "evidence_path": "evidence/instagram/20250115/search_field/",
+    "strategies": [
+      {
+        "type": "accessibility_id",
+        "value": "search-text-input",
+        "confidence": 0.95,
+        "notes": "Primary strategy - reliable accessibility ID"
+      },
+      {
+        "type": "ios_predicate",
+        "value": "name == \"search-text-input\"",
+        "confidence": 0.9,
+        "notes": "iOS predicate string fallback"
+      }
+    ],
+    "fallback_strategies": [
+      {
+        "type": "ios_class_chain",
+        "value": "**/XCUIElementTypeSearchField[`name == \"search-text-input\"`]",
+        "confidence": 0.85,
+        "notes": "iOS class chain with name predicate"
+      },
+      {
+        "type": "xpath",
+        "value": "//XCUIElementTypeSearchField[@name='search-text-input']",
+        "confidence": 0.8,
+        "notes": "XPath fallback - slower but reliable"
+      },
+      {
+        "type": "xpath",
+        "value": "//XCUIElementTypeSearchField[@label='Search']",
+        "confidence": 0.7,
+        "notes": "Label-based XPath as last resort"
+      }
+    ],
+    "verify_signals": [
+      {
+        "type": "element_enabled",
+        "expected": true
+      },
+      {
+        "type": "element_visible", 
+        "expected": true
+      },
+      {
+        "type": "element_type",
+        "expected": "XCUIElementTypeSearchField"
+      }
+    ],
+    "recovery_actions": ["ensure_home", "close_modals", "hide_keyboard"],
+    "timeout_ms": 3000,
+    "coordinates": {
+      "x": 48,
+      "y": 27,
+      "width": 248,
+      "height": 36
+    },
+    "validation": {
+      "captured_at": "2025-01-15T00:00:00Z",
+      "device_info": "iPhone JB",
+      "instagram_version": "current",
+      "success_rate": "pending_validation"
+    }
+  },
+  "search_cancel_button": {
+    "description": "Cancel button that appears when search field is focused",
+    "evidence_path": "evidence/instagram/20250115/search_field/",
+    "strategies": [
+      {
+        "type": "accessibility_id",
+        "value": "search-bar-cancel-button",
+        "confidence": 0.95,
+        "notes": "Cancel button accessibility ID"
+      }
+    ],
+    "fallback_strategies": [
+      {
+        "type": "xpath",
+        "value": "//XCUIElementTypeButton[@name='search-bar-cancel-button']",
+        "confidence": 0.8
+      },
+      {
+        "type": "xpath",
+        "value": "//XCUIElementTypeButton[@label='Cancel']",
+        "confidence": 0.7
+      }
+    ],
+    "verify_signals": [
+      {
+        "type": "element_enabled",
+        "expected": true
+      },
+      {
+        "type": "element_visible", 
+        "expected": true
+      }
+    ],
+    "recovery_actions": ["hide_keyboard"],
+    "timeout_ms": 2000,
+    "coordinates": {
+      "x": 309,
+      "y": 28,
+      "width": 53,
+      "height": 34
+    }
+  }
+}

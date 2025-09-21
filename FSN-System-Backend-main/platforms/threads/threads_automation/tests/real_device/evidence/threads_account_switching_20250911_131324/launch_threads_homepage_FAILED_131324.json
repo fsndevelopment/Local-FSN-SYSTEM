@@ -1,0 +1,10 @@
+{
+  "action": "launch_threads_homepage",
+  "success": false,
+  "timestamp": "131324",
+  "data": {
+    "success": false,
+    "message": "Threads launch error: Failed to create device session for df44ce18dfdd9d0ffd2420fb9fc0176a7b6bd64e",
+    "data": {}
+  }
+}

@@ -1,0 +1,184 @@
+{
+  "follow_button": {
+    "description": "Follow button on Instagram profile pages",
+    "evidence_path": "evidence/instagram/20250115/profile/",
+    "strategies": [
+      {
+        "type": "accessibility_id",
+        "value": "Follow",
+        "confidence": 0.95,
+        "notes": "Primary strategy - reliable accessibility ID for follow button"
+      },
+      {
+        "type": "accessibility_id", 
+        "value": "follow-user-button",
+        "confidence": 0.9,
+        "notes": "Alternative accessibility ID for follow button"
+      },
+      {
+        "type": "ios_predicate",
+        "value": "name == \"Follow\" AND type == \"XCUIElementTypeButton\"",
+        "confidence": 0.85,
+        "notes": "iOS predicate for follow button"
+      },
+      {
+        "type": "ios_class_chain",
+        "value": "**/XCUIElementTypeButton[`name == \"Follow\"`]",
+        "confidence": 0.8,
+        "notes": "Class chain selector for follow button"
+      }
+    ],
+    "fallback_strategies": [
+      {
+        "type": "xpath",
+        "value": "//XCUIElementTypeButton[contains(@name, 'Follow') and not(contains(@name, 'Following'))]",
+        "confidence": 0.75,
+        "notes": "XPath for follow button excluding following button"
+      },
+      {
+        "type": "xpath",
+        "value": "//XCUIElementTypeButton[@name='Follow']",
+        "confidence": 0.7,
+        "notes": "Simple XPath for follow button"
+      }
+    ],
+    "verify_signals": [
+      {
+        "type": "element_enabled",
+        "expected": true
+      },
+      {
+        "type": "element_visible",
+        "expected": true
+      },
+      {
+        "type": "element_type",
+        "expected": "XCUIElementTypeButton"
+      },
+      {
+        "type": "text_content",
+        "expected": "Follow"
+      }
+    ],
+    "recovery_actions": ["ensure_profile_loaded", "scroll_to_profile_header"],
+    "timeout_ms": 8000
+  },
+  
+  "following_button": {
+    "description": "Following button on Instagram profile pages (indicates already following)",
+    "evidence_path": "evidence/instagram/20250115/profile/",
+    "strategies": [
+      {
+        "type": "accessibility_id",
+        "value": "Following",
+        "confidence": 0.95,
+        "notes": "Primary strategy - reliable accessibility ID for following button"
+      },
+      {
+        "type": "accessibility_id",
+        "value": "following-user-button", 
+        "confidence": 0.9,
+        "notes": "Alternative accessibility ID for following button"
+      },
+      {
+        "type": "ios_predicate",
+        "value": "name == \"Following\" AND type == \"XCUIElementTypeButton\"",
+        "confidence": 0.85,
+        "notes": "iOS predicate for following button"
+      },
+      {
+        "type": "ios_class_chain",
+        "value": "**/XCUIElementTypeButton[`name == \"Following\"`]",
+        "confidence": 0.8,
+        "notes": "Class chain selector for following button"
+      }
+    ],
+    "fallback_strategies": [
+      {
+        "type": "xpath",
+        "value": "//XCUIElementTypeButton[contains(@name, 'Following')]",
+        "confidence": 0.75,
+        "notes": "XPath for following button"
+      },
+      {
+        "type": "xpath",
+        "value": "//XCUIElementTypeButton[@name='Following']",
+        "confidence": 0.7,
+        "notes": "Simple XPath for following button"
+      }
+    ],
+    "verify_signals": [
+      {
+        "type": "element_enabled",
+        "expected": true
+      },
+      {
+        "type": "element_visible",
+        "expected": true
+      },
+      {
+        "type": "element_type",
+        "expected": "XCUIElementTypeButton"
+      },
+      {
+        "type": "text_content",
+        "expected": "Following"
+      }
+    ],
+    "recovery_actions": ["ensure_profile_loaded", "scroll_to_profile_header"],
+    "timeout_ms": 8000
+  },
+
+  "requested_button": {
+    "description": "Requested button on Instagram profile pages (follow request pending)",
+    "evidence_path": "evidence/instagram/20250115/profile/",
+    "strategies": [
+      {
+        "type": "accessibility_id",
+        "value": "Requested",
+        "confidence": 0.95,
+        "notes": "Primary strategy - reliable accessibility ID for requested button"
+      },
+      {
+        "type": "accessibility_id",
+        "value": "requested-user-button",
+        "confidence": 0.9,
+        "notes": "Alternative accessibility ID for requested button"
+      },
+      {
+        "type": "ios_predicate",
+        "value": "name == \"Requested\" AND type == \"XCUIElementTypeButton\"",
+        "confidence": 0.85,
+        "notes": "iOS predicate for requested button"
+      }
+    ],
+    "fallback_strategies": [
+      {
+        "type": "xpath",
+        "value": "//XCUIElementTypeButton[contains(@name, 'Requested')]",
+        "confidence": 0.75,
+        "notes": "XPath for requested button"
+      }
+    ],
+    "verify_signals": [
+      {
+        "type": "element_enabled",
+        "expected": true
+      },
+      {
+        "type": "element_visible",
+        "expected": true
+      },
+      {
+        "type": "element_type",
+        "expected": "XCUIElementTypeButton"
+      },
+      {
+        "type": "text_content",
+        "expected": "Requested"
+      }
+    ],
+    "recovery_actions": ["ensure_profile_loaded", "scroll_to_profile_header"],
+    "timeout_ms": 8000
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "action": "launch_threads_homepage",
+  "success": false,
+  "timestamp": "131410",
+  "data": {
+    "success": false,
+    "message": "Threads launch error: type object 'By' has no attribute 'ACCESSIBILITY_ID'",
+    "data": {
+      "checkpoint": {
+        "screenshot": "evidence/threads_account_switching_launch_threads_homepage_FAILED_131404.png",
+        "xml": "evidence/threads_account_switching_launch_threads_homepage_FAILED_131404.xml",
+        "timestamp": "131404",
+        "status": "FAILED"
+      }
+    }
+  }
+}

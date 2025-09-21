@@ -1,0 +1,125 @@
+{
+  "intent": "like_button",
+  "description": "Instagram like button with state detection (empty vs filled heart) - REAL DEVICE VERIFIED",
+  "strategies": [
+    {
+      "type": "accessibility_id",
+      "value": "like-button",
+      "confidence": 0.98,
+      "notes": "CONFIRMED WORKING - Real device tested 2025-01-15"
+    },
+    {
+      "type": "accessibility_id",
+      "value": "Like",
+      "confidence": 0.85,
+      "notes": "Fallback - label-based (may not work)"
+    },
+    {
+      "type": "accessibility_id",
+      "value": "Unlike",
+      "confidence": 0.85,
+      "notes": "Liked state - filled heart (fallback)"
+    },
+    {
+      "type": "ios_predicate",
+      "value": "name == \"like-button\"",
+      "confidence": 0.95,
+      "notes": "CONFIRMED WORKING - Real device iOS predicate"
+    },
+    {
+      "type": "ios_class_chain",
+      "value": "**/XCUIElementTypeButton[`name == \"like-button\"`]",
+      "confidence": 0.92,
+      "notes": "CONFIRMED WORKING - Real device class chain"
+    },
+    {
+      "type": "predicate",
+      "value": "type == 'XCUIElementTypeButton' AND (name == 'Like' OR name == 'Unlike')",
+      "confidence": 0.75,
+      "notes": "Fallback - Button with Like/Unlike name"
+    },
+    {
+      "type": "predicate",
+      "value": "type == 'XCUIElementTypeButton' AND name CONTAINS 'like'",
+      "confidence": 0.70,
+      "notes": "Fallback - Case insensitive like button"
+    },
+    {
+      "type": "xpath",
+      "value": "//XCUIElementTypeButton[@name=\"like-button\"]",
+      "confidence": 0.90,
+      "notes": "CONFIRMED WORKING - Real device XPath"
+    },
+    {
+      "type": "xpath",
+      "value": "//XCUIElementTypeButton[contains(@name, 'Like') or contains(@name, 'Unlike')]",
+      "confidence": 0.65,
+      "notes": "Fallback - XPath like button"
+    },
+    {
+      "type": "relative",
+      "anchor": "comment_button",
+      "direction": "left",
+      "confidence": 0.70,
+      "notes": "Button to the left of comment button"
+    },
+    {
+      "type": "template_match",
+      "image": "heart_empty_template.png",
+      "confidence": 0.60,
+      "notes": "Visual empty heart icon"
+    },
+    {
+      "type": "template_match",
+      "image": "heart_filled_template.png", 
+      "confidence": 0.60,
+      "notes": "Visual filled heart icon"
+    }
+  ],
+  "state_detection": {
+    "unliked": {
+      "accessibility_indicators": ["Like"],
+      "visual_indicators": ["heart_empty_template.png"],
+      "color_analysis": "heart_outline_only"
+    },
+    "liked": {
+      "accessibility_indicators": ["Unlike"],
+      "visual_indicators": ["heart_filled_template.png"],
+      "color_analysis": "heart_filled_red"
+    }
+  },
+  "interactions": {
+    "tap_to_like": {
+      "precondition": "state == unliked",
+      "action": "tap",
+      "expected_result": "state == liked",
+      "verification_delay_ms": 500
+    },
+    "tap_to_unlike": {
+      "precondition": "state == liked", 
+      "action": "tap",
+      "expected_result": "state == unliked",
+      "verification_delay_ms": 500
+    }
+  },
+  "validation": {
+    "required_attributes": ["name", "type"],
+    "expected_type": "XCUIElementTypeButton",
+    "interaction_test": "tap_and_verify_state_toggle",
+    "state_change_timeout_ms": 2000
+  },
+  "error_conditions": {
+    "action_blocked": {
+      "indicators": ["You're temporarily blocked", "Action Blocked"],
+      "recovery": "pause_and_retry_later"
+    },
+    "rate_limited": {
+      "indicators": ["Try again later", "Please wait"],
+      "recovery": "exponential_backoff"
+    },
+    "login_required": {
+      "indicators": ["Log in", "Sign up"],
+      "recovery": "restart_session"
+    }
+  }
+}

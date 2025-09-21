@@ -1,0 +1,10 @@
+{
+  "action": "switch_to_account_ap5aihm4",
+  "success": false,
+  "timestamp": "132931",
+  "data": {
+    "success": false,
+    "message": "Account switcher is not open. Please open it first.",
+    "data": {}
+  }
+}

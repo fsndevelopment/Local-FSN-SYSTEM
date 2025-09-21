@@ -1,0 +1,10 @@
+{
+  "action": "switch_to_account_ap5aihm4",
+  "success": false,
+  "timestamp": "131333",
+  "data": {
+    "success": false,
+    "message": "Account switch error: Failed to create device session for df44ce18dfdd9d0ffd2420fb9fc0176a7b6bd64e",
+    "data": {}
+  }
+}

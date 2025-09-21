@@ -1,0 +1,17 @@
+{
+  "action": "launch_threads_homepage",
+  "success": true,
+  "timestamp": "131723",
+  "data": {
+    "success": true,
+    "message": "Threads launched successfully using XPath but homepage not confirmed",
+    "data": {
+      "checkpoint": {
+        "screenshot": "evidence/threads_account_switching_launch_threads_homepage_SUCCESS_131721.png",
+        "xml": "evidence/threads_account_switching_launch_threads_homepage_SUCCESS_131721.xml",
+        "timestamp": "131721",
+        "status": "SUCCESS"
+      }
+    }
+  }
+}

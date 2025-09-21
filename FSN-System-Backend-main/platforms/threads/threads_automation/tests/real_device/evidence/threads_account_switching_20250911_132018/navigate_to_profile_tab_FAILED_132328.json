@@ -1,0 +1,17 @@
+{
+  "action": "navigate_to_profile_tab",
+  "success": false,
+  "timestamp": "132328",
+  "data": {
+    "success": false,
+    "message": "Profile tab not found",
+    "data": {
+      "checkpoint": {
+        "screenshot": "evidence/threads_account_switching_navigate_to_profile_tab_FAILED_132326.png",
+        "xml": "evidence/threads_account_switching_navigate_to_profile_tab_FAILED_132326.xml",
+        "timestamp": "132326",
+        "status": "FAILED"
+      }
+    }
+  }
+}

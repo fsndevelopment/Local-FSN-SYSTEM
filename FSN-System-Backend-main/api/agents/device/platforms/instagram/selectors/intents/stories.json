@@ -1,0 +1,183 @@
+{
+  "stories_tray": {
+    "description": "Stories tray container at top of home feed",
+    "evidence_path": "Appium Screenshots/USED ALREADY/",
+    "strategies": [
+      {
+        "type": "accessibility_id",
+        "value": "stories-tray",
+        "confidence": 0.95,
+        "notes": "Stories tray container from XML evidence"
+      },
+      {
+        "type": "xpath",
+        "value": "//XCUIElementTypeCell[@name='stories-tray']",
+        "confidence": 0.9,
+        "notes": "XPath for stories tray"
+      }
+    ],
+    "verify_signals": [
+      {
+        "type": "element_enabled",
+        "expected": true
+      },
+      {
+        "type": "element_visible", 
+        "expected": true
+      }
+    ],
+    "timeout_ms": 5000
+  },
+  "story_ring": {
+    "description": "Individual story ring/bubble (active, not viewed yet)",
+    "evidence_path": "Appium Screenshots/USED ALREADY/",
+    "strategies": [
+      {
+        "type": "accessibility_id",
+        "value": "story-ring",
+        "confidence": 0.95,
+        "notes": "Validated story ring selector"
+      },
+      {
+        "type": "ios_class_chain",
+        "value": "**/XCUIElementTypeOther[`name == \"story-ring\"`][1]",
+        "confidence": 0.9,
+        "notes": "First story ring using class chain"
+      },
+      {
+        "type": "xpath",
+        "value": "(//XCUIElementTypeOther[@name=\"story-ring\"])[1]",
+        "confidence": 0.85,
+        "notes": "First story ring using XPath"
+      }
+    ],
+    "fallback_strategies": [
+      {
+        "type": "xpath",
+        "value": "//XCUIElementTypeOther[@name=\"story-ring\"]",
+        "confidence": 0.8,
+        "notes": "Any story ring (first available)"
+      },
+      {
+        "type": "accessibility_id",
+        "value": "story-tray-profile-picture",
+        "confidence": 0.7,
+        "notes": "Story profile picture as fallback"
+      }
+    ],
+    "verify_signals": [
+      {
+        "type": "element_enabled",
+        "expected": true
+      },
+      {
+        "type": "element_visible", 
+        "expected": true
+      }
+    ],
+    "timeout_ms": 3000
+  },
+  "story_tray_cells": {
+    "description": "Individual story tray cells for specific users",
+    "evidence_path": "Appium Screenshots/USED ALREADY/",
+    "strategies": [
+      {
+        "type": "accessibility_id_pattern",
+        "value": "story-tray-cell-{username}",
+        "confidence": 0.95,
+        "notes": "Dynamic story cell selector based on username"
+      },
+      {
+        "type": "xpath",
+        "value": "//XCUIElementTypeCell[starts-with(@name, 'story-tray-cell-')]",
+        "confidence": 0.9,
+        "notes": "Any story tray cell"
+      }
+    ],
+    "verify_signals": [
+      {
+        "type": "element_enabled",
+        "expected": true
+      },
+      {
+        "type": "element_visible", 
+        "expected": true
+      }
+    ],
+    "timeout_ms": 3000
+  },
+  "story_dismiss_button": {
+    "description": "Button to close/dismiss story view",
+    "evidence_path": "Appium Screenshots/USED ALREADY/",
+    "strategies": [
+      {
+        "type": "accessibility_id",
+        "value": "story-dismiss-button",
+        "confidence": 0.95,
+        "notes": "Validated story dismiss button selector"
+      },
+      {
+        "type": "ios_class_chain",
+        "value": "**/XCUIElementTypeButton[`name == \"story-dismiss-button\"`]",
+        "confidence": 0.9,
+        "notes": "Class chain for story dismiss button"
+      },
+      {
+        "type": "ios_predicate",
+        "value": "name == \"story-dismiss-button\"",
+        "confidence": 0.85,
+        "notes": "Predicate for story dismiss button"
+      },
+      {
+        "type": "xpath",
+        "value": "//XCUIElementTypeButton[@name=\"story-dismiss-button\"]",
+        "confidence": 0.8,
+        "notes": "XPath for story dismiss button"
+      }
+    ],
+    "verify_signals": [
+      {
+        "type": "element_enabled",
+        "expected": true
+      },
+      {
+        "type": "element_visible", 
+        "expected": true
+      },
+      {
+        "type": "element_type",
+        "expected": "XCUIElementTypeButton"
+      }
+    ],
+    "timeout_ms": 3000
+  },
+  "your_story": {
+    "description": "Your own story cell (for posting stories)",
+    "evidence_path": "Appium Screenshots/USED ALREADY/",
+    "strategies": [
+      {
+        "type": "accessibility_id",
+        "value": "story-tray-cell-self",
+        "confidence": 0.95,
+        "notes": "Your story cell from XML evidence"
+      },
+      {
+        "type": "xpath",
+        "value": "//XCUIElementTypeCell[@name='story-tray-cell-self']",
+        "confidence": 0.9,
+        "notes": "XPath for your story cell"
+      }
+    ],
+    "verify_signals": [
+      {
+        "type": "element_enabled",
+        "expected": true
+      },
+      {
+        "type": "element_visible", 
+        "expected": true
+      }
+    ],
+    "timeout_ms": 3000
+  }
+}

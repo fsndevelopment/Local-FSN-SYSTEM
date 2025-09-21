@@ -1,0 +1,132 @@
+{
+  "home_tab": {
+    "description": "Instagram home feed tab in bottom navigation",
+    "evidence_path": "evidence/instagram/20250115/navigation/",
+    "strategies": [
+      {
+        "type": "accessibility_id",
+        "value": "mainfeed-tab",
+        "confidence": 0.95,
+        "notes": "Primary strategy - reliable accessibility ID for home tab"
+      },
+      {
+        "type": "accessibility_id",
+        "value": "Home",
+        "confidence": 0.9,
+        "notes": "Alternative accessibility ID"
+      },
+      {
+        "type": "ios_predicate",
+        "value": "name == \"mainfeed-tab\"",
+        "confidence": 0.85,
+        "notes": "iOS predicate fallback"
+      }
+    ],
+    "fallback_strategies": [
+      {
+        "type": "xpath",
+        "value": "//XCUIElementTypeTabBar//XCUIElementTypeButton[@name='mainfeed-tab']",
+        "confidence": 0.8,
+        "notes": "XPath within tab bar"
+      },
+      {
+        "type": "xpath",
+        "value": "//XCUIElementTypeButton[@name='Home']",
+        "confidence": 0.75,
+        "notes": "Generic home button XPath"
+      }
+    ],
+    "verify_signals": [
+      {
+        "type": "element_enabled",
+        "expected": true
+      },
+      {
+        "type": "element_visible", 
+        "expected": true
+      },
+      {
+        "type": "element_type",
+        "expected": "XCUIElementTypeButton"
+      }
+    ],
+    "recovery_actions": ["ensure_app_active", "close_modals"],
+    "timeout_ms": 3000
+  },
+  "explore_tab": {
+    "description": "Instagram explore/search tab in bottom navigation",
+    "evidence_path": "evidence/instagram/20250115/navigation/",
+    "strategies": [
+      {
+        "type": "accessibility_id",
+        "value": "explore-tab",
+        "confidence": 0.95,
+        "notes": "Primary strategy - reliable accessibility ID for explore tab"
+      },
+      {
+        "type": "accessibility_id",
+        "value": "Search",
+        "confidence": 0.9,
+        "notes": "Alternative accessibility ID"
+      }
+    ],
+    "fallback_strategies": [
+      {
+        "type": "xpath",
+        "value": "//XCUIElementTypeTabBar//XCUIElementTypeButton[@name='explore-tab']",
+        "confidence": 0.8,
+        "notes": "XPath within tab bar"
+      }
+    ],
+    "verify_signals": [
+      {
+        "type": "element_enabled",
+        "expected": true
+      },
+      {
+        "type": "element_visible", 
+        "expected": true
+      }
+    ],
+    "recovery_actions": ["ensure_app_active", "close_modals"],
+    "timeout_ms": 3000
+  },
+  "profile_tab": {
+    "description": "Instagram profile tab in bottom navigation",
+    "evidence_path": "evidence/instagram/20250115/navigation/",
+    "strategies": [
+      {
+        "type": "accessibility_id",
+        "value": "profile-tab",
+        "confidence": 0.95,
+        "notes": "Primary strategy - reliable accessibility ID for profile tab"
+      },
+      {
+        "type": "accessibility_id",
+        "value": "Profile",
+        "confidence": 0.9,
+        "notes": "Alternative accessibility ID"
+      }
+    ],
+    "fallback_strategies": [
+      {
+        "type": "xpath",
+        "value": "//XCUIElementTypeTabBar//XCUIElementTypeButton[@name='profile-tab']",
+        "confidence": 0.8,
+        "notes": "XPath within tab bar"
+      }
+    ],
+    "verify_signals": [
+      {
+        "type": "element_enabled",
+        "expected": true
+      },
+      {
+        "type": "element_visible", 
+        "expected": true
+      }
+    ],
+    "recovery_actions": ["ensure_app_active", "close_modals"],
+    "timeout_ms": 3000
+  }
+}

@@ -1,0 +1,418 @@
+{
+  "profile_picture": {
+    "description": "Profile picture button on Instagram profile page",
+    "evidence_path": "evidence/instagram/20250115/profile_header/",
+    "strategies": [
+      {
+        "type": "accessibility_id",
+        "value": "instagram. Profile picture",
+        "confidence": 0.95,
+        "notes": "Primary strategy - specific to Instagram profile"
+      },
+      {
+        "type": "ios_predicate",
+        "value": "name == \"instagram. Profile picture\"",
+        "confidence": 0.9,
+        "notes": "iOS predicate fallback"
+      }
+    ],
+    "fallback_strategies": [
+      {
+        "type": "ios_class_chain",
+        "value": "**/XCUIElementTypeButton[`name == \"instagram. Profile picture\"`]",
+        "confidence": 0.85,
+        "notes": "iOS class chain with name predicate"
+      },
+      {
+        "type": "xpath",
+        "value": "//XCUIElementTypeButton[@name=\"instagram. Profile picture\"]",
+        "confidence": 0.8,
+        "notes": "XPath fallback"
+      },
+      {
+        "type": "xpath",
+        "value": "//XCUIElementTypeButton[contains(@name, '. Profile picture')]",
+        "confidence": 0.7,
+        "notes": "Generic profile picture pattern"
+      }
+    ],
+    "verify_signals": [
+      {
+        "type": "element_enabled",
+        "expected": true
+      },
+      {
+        "type": "element_visible", 
+        "expected": true
+      },
+      {
+        "type": "element_type",
+        "expected": "XCUIElementTypeButton"
+      }
+    ],
+    "recovery_actions": ["ensure_home", "close_modals"],
+    "timeout_ms": 3000,
+    "coordinates": {
+      "x": 15,
+      "y": 74,
+      "width": 87,
+      "height": 87
+    }
+  },
+  "username_text": {
+    "description": "Username display text on profile header",
+    "evidence_path": "evidence/instagram/20250115/profile_header/",
+    "strategies": [
+      {
+        "type": "accessibility_id",
+        "value": "Instagram",
+        "confidence": 0.9,
+        "notes": "Direct username accessibility - may vary by profile"
+      },
+      {
+        "type": "ios_predicate",
+        "value": "name == \"Instagram\" AND label == \"Instagram\" AND type == \"XCUIElementTypeOther\"",
+        "confidence": 0.85,
+        "notes": "Full predicate with type constraint"
+      }
+    ],
+    "fallback_strategies": [
+      {
+        "type": "ios_class_chain",
+        "value": "**/XCUIElementTypeOther[`name == \"Instagram\"`]",
+        "confidence": 0.8,
+        "notes": "Class chain fallback"
+      },
+      {
+        "type": "xpath",
+        "value": "//XCUIElementTypeOther[@name=\"Instagram\"]",
+        "confidence": 0.75,
+        "notes": "XPath fallback"
+      },
+      {
+        "type": "xpath",
+        "value": "//XCUIElementTypeOther[contains(@x, \"123\") and contains(@y, \"82\")]",
+        "confidence": 0.6,
+        "notes": "Position-based fallback for username area"
+      }
+    ],
+    "verify_signals": [
+      {
+        "type": "element_enabled",
+        "expected": true
+      },
+      {
+        "type": "element_visible", 
+        "expected": true
+      }
+    ],
+    "recovery_actions": ["ensure_home", "close_modals"],
+    "timeout_ms": 3000,
+    "coordinates": {
+      "x": 123,
+      "y": 82,
+      "width": 237,
+      "height": 20
+    }
+  },
+  "bio_text": {
+    "description": "Profile bio text area",
+    "evidence_path": "evidence/instagram/20250115/profile_header/",
+    "strategies": [
+      {
+        "type": "accessibility_id",
+        "value": "Discover what's new on Instagram 🔎✨",
+        "confidence": 0.9,
+        "notes": "Specific bio text - will vary by profile"
+      },
+      {
+        "type": "ios_predicate",
+        "value": "name == \"Discover what's new on Instagram 🔎✨\"",
+        "confidence": 0.85,
+        "notes": "iOS predicate for specific bio"
+      }
+    ],
+    "fallback_strategies": [
+      {
+        "type": "ios_class_chain",
+        "value": "**/XCUIElementTypeStaticText[`name == \"Discover what's new on Instagram 🔎✨\"`]",
+        "confidence": 0.8,
+        "notes": "Class chain for bio text"
+      },
+      {
+        "type": "xpath",
+        "value": "//XCUIElementTypeStaticText[@name=\"Discover what's new on Instagram 🔎✨\"]",
+        "confidence": 0.75,
+        "notes": "XPath for specific bio"
+      },
+      {
+        "type": "xpath",
+        "value": "//XCUIElementTypeLink[@name=\"user-detail-header-info-label\"]//XCUIElementTypeStaticText",
+        "confidence": 0.7,
+        "notes": "Generic bio text selector"
+      }
+    ],
+    "verify_signals": [
+      {
+        "type": "element_enabled",
+        "expected": true
+      },
+      {
+        "type": "element_visible", 
+        "expected": true
+      },
+      {
+        "type": "element_type",
+        "expected": "XCUIElementTypeStaticText"
+      }
+    ],
+    "recovery_actions": ["ensure_home", "close_modals"],
+    "timeout_ms": 3000,
+    "coordinates": {
+      "x": 16,
+      "y": 172,
+      "width": 343,
+      "height": 21
+    }
+  },
+  "followers_count": {
+    "description": "Followers count button on profile header",
+    "evidence_path": "evidence/instagram/20250115/profile_header/",
+    "strategies": [
+      {
+        "type": "accessibility_id",
+        "value": "user-detail-header-followers",
+        "confidence": 0.95,
+        "notes": "Primary strategy - reliable accessibility ID"
+      },
+      {
+        "type": "ios_predicate",
+        "value": "name == \"user-detail-header-followers\"",
+        "confidence": 0.9,
+        "notes": "iOS predicate fallback"
+      }
+    ],
+    "fallback_strategies": [
+      {
+        "type": "ios_class_chain",
+        "value": "**/XCUIElementTypeButton[`name == \"user-detail-header-followers\"`]",
+        "confidence": 0.85,
+        "notes": "iOS class chain fallback"
+      },
+      {
+        "type": "xpath",
+        "value": "//XCUIElementTypeButton[@name=\"user-detail-header-followers\"]",
+        "confidence": 0.8,
+        "notes": "XPath fallback"
+      },
+      {
+        "type": "xpath",
+        "value": "//XCUIElementTypeButton[@label=\"Followers\"]",
+        "confidence": 0.75,
+        "notes": "Label-based fallback"
+      }
+    ],
+    "verify_signals": [
+      {
+        "type": "element_enabled",
+        "expected": true
+      },
+      {
+        "type": "element_visible", 
+        "expected": true
+      },
+      {
+        "type": "element_type",
+        "expected": "XCUIElementTypeButton"
+      }
+    ],
+    "recovery_actions": ["ensure_home", "close_modals"],
+    "timeout_ms": 3000,
+    "coordinates": {
+      "x": 189,
+      "y": 102,
+      "width": 89,
+      "height": 70
+    }
+  },
+  "following_count": {
+    "description": "Following count button on profile header",
+    "evidence_path": "evidence/instagram/20250115/profile_header/",
+    "strategies": [
+      {
+        "type": "accessibility_id",
+        "value": "user-detail-header-following-button",
+        "confidence": 0.95,
+        "notes": "Primary strategy - reliable accessibility ID"
+      },
+      {
+        "type": "ios_predicate",
+        "value": "name == \"user-detail-header-following-button\"",
+        "confidence": 0.9,
+        "notes": "iOS predicate fallback"
+      }
+    ],
+    "fallback_strategies": [
+      {
+        "type": "ios_class_chain",
+        "value": "**/XCUIElementTypeButton[`name == \"user-detail-header-following-button\"`]",
+        "confidence": 0.85,
+        "notes": "iOS class chain fallback"
+      },
+      {
+        "type": "xpath",
+        "value": "//XCUIElementTypeButton[@name=\"user-detail-header-following-button\"]",
+        "confidence": 0.8,
+        "notes": "XPath fallback"
+      },
+      {
+        "type": "xpath",
+        "value": "//XCUIElementTypeButton[@label=\"Following\"]",
+        "confidence": 0.75,
+        "notes": "Label-based fallback"
+      }
+    ],
+    "verify_signals": [
+      {
+        "type": "element_enabled",
+        "expected": true
+      },
+      {
+        "type": "element_visible", 
+        "expected": true
+      },
+      {
+        "type": "element_type",
+        "expected": "XCUIElementTypeButton"
+      }
+    ],
+    "recovery_actions": ["ensure_home", "close_modals"],
+    "timeout_ms": 3000,
+    "coordinates": {
+      "x": 277,
+      "y": 102,
+      "width": 82,
+      "height": 70
+    }
+  },
+  "posts_count": {
+    "description": "Posts count button on profile header",
+    "evidence_path": "evidence/instagram/20250115/profile_header/",
+    "strategies": [
+      {
+        "type": "accessibility_id",
+        "value": "user-detail-header-media-button",
+        "confidence": 0.95,
+        "notes": "Primary strategy - reliable accessibility ID"
+      },
+      {
+        "type": "ios_predicate",
+        "value": "name == \"user-detail-header-media-button\"",
+        "confidence": 0.9,
+        "notes": "iOS predicate fallback"
+      }
+    ],
+    "fallback_strategies": [
+      {
+        "type": "ios_class_chain",
+        "value": "**/XCUIElementTypeButton[`name == \"user-detail-header-media-button\"`]",
+        "confidence": 0.85,
+        "notes": "iOS class chain fallback"
+      },
+      {
+        "type": "xpath",
+        "value": "//XCUIElementTypeButton[@name=\"user-detail-header-media-button\"]",
+        "confidence": 0.8,
+        "notes": "XPath fallback"
+      },
+      {
+        "type": "xpath",
+        "value": "//XCUIElementTypeButton[@label=\"Posts count\"]",
+        "confidence": 0.75,
+        "notes": "Label-based fallback"
+      }
+    ],
+    "verify_signals": [
+      {
+        "type": "element_enabled",
+        "expected": true
+      },
+      {
+        "type": "element_visible", 
+        "expected": true
+      },
+      {
+        "type": "element_type",
+        "expected": "XCUIElementTypeButton"
+      }
+    ],
+    "recovery_actions": ["ensure_home", "close_modals"],
+    "timeout_ms": 3000,
+    "coordinates": {
+      "x": 123,
+      "y": 102,
+      "width": 67,
+      "height": 70
+    }
+  },
+  "search_result_cell": {
+    "description": "Search result cell for selecting profiles from search",
+    "evidence_path": "evidence/instagram/20250115/search_results/",
+    "strategies": [
+      {
+        "type": "accessibility_id",
+        "value": "search-collection-view-cell-25025320",
+        "confidence": 0.9,
+        "notes": "Specific cell ID - will vary by search result"
+      },
+      {
+        "type": "ios_predicate",
+        "value": "name == \"search-collection-view-cell-25025320\"",
+        "confidence": 0.85,
+        "notes": "iOS predicate for specific cell"
+      }
+    ],
+    "fallback_strategies": [
+      {
+        "type": "ios_class_chain",
+        "value": "**/XCUIElementTypeCell[`name == \"search-collection-view-cell-25025320\"`]",
+        "confidence": 0.8,
+        "notes": "Class chain for specific cell"
+      },
+      {
+        "type": "xpath",
+        "value": "//XCUIElementTypeCell[@name=\"search-collection-view-cell-25025320\"]",
+        "confidence": 0.75,
+        "notes": "XPath for specific cell"
+      },
+      {
+        "type": "xpath",
+        "value": "//XCUIElementTypeCell[contains(@name, \"search-collection-view-cell-\")]",
+        "confidence": 0.7,
+        "notes": "Generic search result cell pattern"
+      }
+    ],
+    "verify_signals": [
+      {
+        "type": "element_enabled",
+        "expected": true
+      },
+      {
+        "type": "element_visible", 
+        "expected": true
+      },
+      {
+        "type": "element_type",
+        "expected": "XCUIElementTypeCell"
+      }
+    ],
+    "recovery_actions": ["ensure_home", "close_modals"],
+    "timeout_ms": 3000,
+    "coordinates": {
+      "x": 0,
+      "y": 143,
+      "width": 375,
+      "height": 58
+    }
+  }
+}

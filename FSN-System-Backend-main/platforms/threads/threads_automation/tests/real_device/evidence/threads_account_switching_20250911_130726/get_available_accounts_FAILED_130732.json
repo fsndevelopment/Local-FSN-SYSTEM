@@ -1,0 +1,12 @@
+{
+  "action": "get_available_accounts",
+  "success": false,
+  "timestamp": "130732",
+  "data": {
+    "success": false,
+    "message": "Get accounts error: 'df44ce18dfdd9d0ffd2420fb9fc0176a7b6bd64e'",
+    "data": {
+      "accounts": []
+    }
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "action": "open_account_switcher",
+  "success": false,
+  "timestamp": "130730",
+  "data": {
+    "success": false,
+    "message": "Account switcher error: 'df44ce18dfdd9d0ffd2420fb9fc0176a7b6bd64e'",
+    "data": {}
+  }
+}

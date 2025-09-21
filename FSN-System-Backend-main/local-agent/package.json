@@ -1,0 +1,26 @@
+{
+  "name": "fsn-local-agent",
+  "version": "1.0.0",
+  "description": "Local agent to bridge physical devices to cloud backend",
+  "main": "agent.js",
+  "scripts": {
+    "start": "node agent.js",
+    "pairing": "node pairing-agent.js",
+    "dev": "nodemon agent.js",
+    "setup": "node setup.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "axios": "^1.6.0",
+    "ws": "^8.14.2",
+    "ngrok": "^4.3.3",
+    "node-cron": "^3.0.3",
+    "winston": "^3.11.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}

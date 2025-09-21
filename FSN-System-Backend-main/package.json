@@ -1,0 +1,16 @@
+{
+  "name": "fsn-local-device-agent",
+  "version": "1.0.0",
+  "description": "Local agent to bridge cloud backend to physical devices",
+  "main": "local-device-agent.js",
+  "scripts": {
+    "start": "node local-device-agent.js",
+    "install-deps": "npm install axios"
+  },
+  "dependencies": {
+    "axios": "^1.6.0"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}

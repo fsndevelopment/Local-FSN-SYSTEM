@@ -1,0 +1,26 @@
+#!/bin/bash
+
+# FSN Agent Mac App Launcher
+# This script will be inside the .app bundle
+
+# Get the directory where the app is located
+APP_DIR="$(dirname "$0")"
+AGENT_DIR="$(dirname "$APP_DIR")/../local-agent"
+
+# Change to the agent directory
+cd "$AGENT_DIR"
+
+# Check if Node.js is installed
+if ! command -v node &> /dev/null; then
+    osascript -e 'display dialog "Node.js is not installed. Please install Node.js first from https://nodejs.org" buttons {"OK"} default button "OK"'
+    exit 1
+fi
+
+# Check if dependencies are installed
+if [ ! -d "node_modules" ]; then
+    osascript -e 'display dialog "Installing dependencies... This may take a few minutes." buttons {"OK"} default button "OK"'
+    npm install
+fi
+
+# Start the pairing agent
+node pairing-agent.js

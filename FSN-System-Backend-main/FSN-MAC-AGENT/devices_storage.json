@@ -1,0 +1,46 @@
+[
+  {
+    "id": "device-1758398401",
+    "udid": "ae6f609c40f74faeadc5a83c8c96bf8c6d0b3ccf",
+    "platform": "iOS",
+    "name": "JB Device",
+    "status": "stopped",
+    "appium_port": 4741,
+    "wda_port": 8109,
+    "mjpeg_port": 9515,
+    "last_seen": "2025-09-20T22:00:01.874600",
+    "ios_version": "17.2.1",
+    "model": "Suzi",
+    "wda_bundle_id": "com.device11.wd11",
+    "jailbroken": true,
+    "ngrok_token": "2zSWp1unbGZyqRfymyzIJUt0tze_FZX7ftD5LXkyJF6om8hr",
+    "settings": {
+      "autoAcceptAlerts": true,
+      "autoDismissAlerts": true,
+      "shouldTerminateApp": true,
+      "jailbroken": true
+    }
+  },
+  {
+    "id": "device-1758399156",
+    "udid": "ae6f609c40f74faeadc5a83c8c96bf8c6d0b3ccf",
+    "platform": "iOS",
+    "name": "JB Device2",
+    "status": "stopped",
+    "appium_port": 4741,
+    "wda_port": 8109,
+    "mjpeg_port": 9427,
+    "last_seen": "2025-09-20T22:12:36.202327",
+    "ios_version": "17.2.1",
+    "model": "Suzi",
+    "wda_bundle_id": "com.device11.wd11",
+    "jailbroken": true,
+    "ngrok_token": "2zSWp1unbGZyqRfymyzIJUt0tze_FZX7ftD5LXkyJF6om8hr",
+    "settings": {
+      "autoAcceptAlerts": true,
+      "autoDismissAlerts": true,
+      "shouldTerminateApp": true,
+      "jailbroken": true
+    }
+  }
+]

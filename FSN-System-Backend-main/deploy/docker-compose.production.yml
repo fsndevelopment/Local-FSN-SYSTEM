@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  fsn-appium-api:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    container_name: fsn-appium-api
+    ports:
+      - "8000:8000"
+    environment:
+      - DEVICE_UDID=${DEVICE_UDID:-f2fea37cddcf6e5c45862acfc98dd4a771a4c9f3}
+      - XCODE_ORG_ID=${XCODE_ORG_ID:-QH986HH926}
+      - XCODE_SIGNING_ID=${XCODE_SIGNING_ID:-iPhone Developer}
+      - SECRET_KEY=${SECRET_KEY:-your-secret-key-change-in-production}
+      - DATABASE_URL=${DATABASE_URL:-sqlite:///fsn_appium_farm.db}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    volumes:
+      - ../api/fsn_appium_farm.db:/app/fsn_appium_farm.db
+      - ../api/rate_limits.json:/app/rate_limits.json
+      - appium_logs:/app/logs
+    restart: unless-stopped
+    networks:
+      - fsn-network
+    
+  appium-server:
+    image: appium/appium:latest
+    container_name: fsn-appium-server
+    ports:
+      - "4739:4723"
+    environment:
+      - RELAXED_SECURITY=true
+    volumes:
+      - /dev/bus/usb:/dev/bus/usb
+    privileged: true
+    restart: unless-stopped
+    networks:
+      - fsn-network
+    command: appium --address 0.0.0.0 --port 4723 --relaxed-security
+
+volumes:
+  appium_logs:
+
+networks:
+  fsn-network:
+    driver: bridge
+
+# Health check for the API service
+x-health-check: &health-check
+  test: ["CMD", "curl", "-f", "http://localhost:8000/api/real-device/test-status"]
+  interval: 30s
+  timeout: 10s
+  retries: 3
+  start_period: 40s

@@ -1,0 +1,10 @@
+{
+  "action": "switch_to_account_ap5aihm4",
+  "success": false,
+  "timestamp": "130735",
+  "data": {
+    "success": false,
+    "message": "Account switch error: 'df44ce18dfdd9d0ffd2420fb9fc0176a7b6bd64e'",
+    "data": {}
+  }
+}

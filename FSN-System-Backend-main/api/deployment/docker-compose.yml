@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: fsn_appium_farm
+      POSTGRES_USER: fsn_user
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+
+  # FSN API
+  api:
+    build: 
+      context: ..
+      dockerfile: deployment/Dockerfile
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://fsn_user:${POSTGRES_PASSWORD}@postgres:5432/fsn_appium_farm
+      - REDIS_URL=redis://redis:6379/0
+      - DEBUG=false
+      - SECRET_KEY=${SECRET_KEY}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgres
+      - redis
+    restart: unless-stopped
+    volumes:
+      - ../logs:/app/logs
+      - ../uploads:/app/uploads
+
+volumes:
+  postgres_data:
+  redis_data:
