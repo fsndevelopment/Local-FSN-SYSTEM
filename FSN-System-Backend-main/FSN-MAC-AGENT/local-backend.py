@@ -325,6 +325,76 @@ def get_active_connection_count() -> int:
 # -------------------------------
 # Helper Functions
 # -------------------------------
+
+def kill_appium_processes_on_port(port: int) -> bool:
+    """Kill all Appium processes running on a specific port"""
+    killed_any = False
+    
+    try:
+        # Method 1: Use lsof to find processes using the port
+        try:
+            result = subprocess.run(['lsof', '-ti', f':{port}'], 
+                                  capture_output=True, text=True, timeout=5)
+            if result.returncode == 0 and result.stdout.strip():
+                pids = result.stdout.strip().split('\n')
+                print(f"🛑 Found processes using port {port}: {pids}")
+                
+                for pid in pids:
+                    if pid.strip():
+                        try:
+                            # First try graceful termination
+                            subprocess.run(['kill', pid.strip()], 
+                                         capture_output=True, timeout=2)
+                            time.sleep(1)
+                            
+                            # Check if process still exists
+                            check_result = subprocess.run(['kill', '-0', pid.strip()], 
+                                                        capture_output=True, timeout=1)
+                            if check_result.returncode == 0:
+                                # Process still exists, force kill
+                                subprocess.run(['kill', '-9', pid.strip()], 
+                                             capture_output=True, timeout=2)
+                                print(f"✅ Force killed process {pid} on port {port}")
+                            else:
+                                print(f"✅ Gracefully terminated process {pid} on port {port}")
+                            killed_any = True
+                        except Exception as kill_error:
+                            print(f"⚠️ Failed to kill process {pid}: {kill_error}")
+                            
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            print(f"⚠️ lsof method failed for port {port}")
+            
+    except Exception as e:
+        print(f"⚠️ Error killing processes on port {port}: {e}")
+    
+    # Method 2: Use psutil if available
+    try:
+        import psutil
+        for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+            try:
+                if proc.info['cmdline']:
+                    cmdline = ' '.join(proc.info['cmdline'])
+                    # Look for Appium processes on this port
+                    if ('appium' in cmdline.lower() and str(port) in cmdline) or \
+                       ('node' in cmdline.lower() and 'appium' in cmdline.lower() and str(port) in cmdline):
+                        print(f"🛑 Found Appium process on port {port}: PID {proc.info['pid']}")
+                        proc.terminate()
+                        try:
+                            proc.wait(timeout=3)
+                            print(f"✅ Terminated Appium process PID {proc.info['pid']}")
+                            killed_any = True
+                        except psutil.TimeoutExpired:
+                            proc.kill()
+                            print(f"✅ Force killed Appium process PID {proc.info['pid']}")
+                            killed_any = True
+            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                continue
+    except ImportError:
+        print("⚠️ psutil not available for process cleanup")
+    except Exception as e:
+        print(f"⚠️ Error with psutil cleanup: {e}")
+    
+    return killed_any
 async def get_account_by_device_id(device_id: str):
     """Get account information by device_id from database"""
     try:
@@ -2461,6 +2531,7 @@ async def broadcast_device_status_update(device_id: str, status: str, message: s
 async def broadcast_account_processing(device_id: str, username: str, account_id: str, current_step: str, progress: int = 0):
     """Broadcast account processing update to all WebSocket connections"""
     print(f"📡 BROADCASTING ACCOUNT PROCESSING: device={device_id}, username={username}, step={current_step}")
+    print(f"📡 BROADCASTING ACCOUNT PROCESSING: account_id={account_id}, progress={progress}")
     
     message = {
         "type": "job_update",
@@ -2477,6 +2548,10 @@ async def broadcast_account_processing(device_id: str, username: str, account_id
     
     print(f"📡 WebSocket message: {json.dumps(message, indent=2)}")
     print(f"🔌 Active WebSocket connections: {len(active_websocket_connections)}")
+    
+    # Log each connection attempt
+    for i, websocket in enumerate(active_websocket_connections):
+        print(f"🔌 Connection {i}: {websocket}")
     
     # Send to all connected WebSockets
     disconnected = set()
@@ -3174,34 +3249,92 @@ async def stop_device(device_id: str):
     except Exception:
         pass
 
+    # Enhanced Appium process termination
+    appium_terminated = False
     if device_id in running_appium_processes:
         process = running_appium_processes[device_id]
-        if process.poll() is None:  # Process is still running
-            process.terminate()
-            process.wait()
-            print(f"🛑 Appium stopped for device {device_id}")
         
+        if process is not None and process.poll() is None:  # Process is still running
+            try:
+                print(f"🛑 Terminating Appium process for device {device_id} (PID: {process.pid})")
+                process.terminate()
+                
+                # Wait up to 5 seconds for graceful termination
+                try:
+                    process.wait(timeout=5)
+                    print(f"✅ Appium process terminated gracefully for device {device_id}")
+                    appium_terminated = True
+                except subprocess.TimeoutExpired:
+                    print(f"⚠️ Appium process didn't terminate gracefully, force killing...")
+                    process.kill()
+                    process.wait()
+                    print(f"✅ Appium process force killed for device {device_id}")
+                    appium_terminated = True
+                    
+            except Exception as e:
+                print(f"❌ Error terminating Appium process: {e}")
+        
+        # Remove from tracking regardless
         del running_appium_processes[device_id]
         
-        # Clean up any ngrok sessions for this device
+        # Additional cleanup: Kill any Appium processes on the device's port
         try:
-            print(f"🧹 Cleaning up ngrok sessions for device {device_id}...")
-            from pyngrok import ngrok
-            ngrok.kill()
-            print(f"✅ ngrok sessions cleaned up for device {device_id}")
+            device = next((d for d in devices if d.get("id") == device_id), None)
+            if device:
+                appium_port = device.get("appium_port", 4741)
+                print(f"🔍 Checking for Appium processes on port {appium_port}")
+                
+                # Use the utility function to kill processes on the port
+                if kill_appium_processes_on_port(appium_port):
+                    appium_terminated = True
+                        
         except Exception as e:
-            print(f"⚠️ Failed to cleanup ngrok sessions: {e}")
+            print(f"⚠️ Error during port cleanup: {e}")
         
-        # Update device status
-        for device in devices:
-            if device.get("id") == device_id:
-                device['status'] = "stopped"
-                break
+        # Verify port is free
+        try:
+            device = next((d for d in devices if d.get("id") == device_id), None)
+            if device:
+                appium_port = device.get("appium_port", 4741)
+                import socket
+                
+                # Check if port is actually free
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                result = sock.connect_ex(('localhost', appium_port))
+                sock.close()
+                
+                if result == 0:
+                    print(f"⚠️ Port {appium_port} is still in use after cleanup")
+                else:
+                    print(f"✅ Port {appium_port} is now free")
+                    
+        except Exception as e:
+            print(f"⚠️ Error checking port status: {e}")
         
-        # Send WebSocket update for device status change
-        await broadcast_device_status_update(device_id, "stopped", "Device stopped successfully")
-        
-        return {"status": "stopped", "device_id": device_id}
+        if appium_terminated:
+            print(f"✅ Appium process and port cleanup completed for device {device_id}")
+        else:
+            print(f"ℹ️ No Appium processes found to terminate for device {device_id}")
+            
+            # Clean up any ngrok sessions for this device
+            try:
+                print(f"🧹 Cleaning up ngrok sessions for device {device_id}...")
+                from pyngrok import ngrok
+                ngrok.kill()
+                print(f"✅ ngrok sessions cleaned up for device {device_id}")
+            except Exception as e:
+                print(f"⚠️ Failed to cleanup ngrok sessions: {e}")
+            
+            # Update device status
+            for device in devices:
+                if device.get("id") == device_id:
+                    device['status'] = "stopped"
+                    break
+            
+            # Send WebSocket update for device status change
+            await broadcast_device_status_update(device_id, "stopped", "Device stopped successfully")
+            
+            return {"status": "stopped", "device_id": device_id}
     else:
         # Ensure device status is set to stopped and notify listeners even if no process found
         for device in devices:

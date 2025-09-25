@@ -68,6 +68,7 @@ import { deviceQueryKeys } from '@/lib/api/devices'
 import { LicenseBlocker } from "@/components/license-blocker"
 import { HeroCard } from "@/components/hero-card"
 import { licenseAwareStorageService } from "@/lib/services/license-aware-storage-service"
+import { getLicenseContext } from "@/lib/services/license-api-service"
 import { PlatformSwitch } from "@/components/platform-switch"
 import { GlobalSearchBar } from "@/components/search/global-search-bar"
 import { PlatformHeader } from "@/components/platform-header"
@@ -229,9 +230,37 @@ const MorphingButton = ({ device, startingDevices, stoppingDevices, onStart, onP
 export default function RunningPage() {
 
   // Use API hooks
-  const { data: apiDevicesResponse, isLoading, refetch } = useDevices()
+  const { data: apiDevicesResponse, isLoading, refetch, error } = useDevices()
   const { data: jobsData } = useJobs()
   const queryClient = useQueryClient()
+  
+  // Debug logging for device loading issues
+  useEffect(() => {
+    console.log('🔍 RUNNING PAGE - Device loading state:', {
+      isLoading,
+      hasData: !!apiDevicesResponse,
+      dataType: typeof apiDevicesResponse,
+      error,
+      timestamp: new Date().toISOString()
+    })
+  }, [isLoading, apiDevicesResponse, error])
+  
+  // Fallback to local storage if API fails
+  const [fallbackDevices, setFallbackDevices] = useState<any[]>([])
+  useEffect(() => {
+    if (error && !apiDevicesResponse) {
+      console.log('⚠️ API failed, trying local storage fallback')
+      try {
+        const localDevices = licenseAwareStorageService.getDevices()
+        setFallbackDevices(localDevices || [])
+        console.log('✅ Loaded devices from local storage:', localDevices?.length || 0)
+      } catch (e) {
+        console.error('❌ Failed to load from local storage:', e)
+      }
+    } else {
+      setFallbackDevices([])
+    }
+  }, [error, apiDevicesResponse])
   
   // Force refresh devices by invalidating cache
   const forceRefreshDevices = () => {
@@ -239,10 +268,11 @@ export default function RunningPage() {
     queryClient.invalidateQueries({ queryKey: deviceQueryKeys.lists() })
   }
   
-  // Handle both array format and paginated response format
-  const apiDevices = Array.isArray(apiDevicesResponse) 
-    ? apiDevicesResponse 
-    : apiDevicesResponse?.devices || []
+  // Handle both array format and paginated response format - use fallback if API fails
+  const devicesData = apiDevicesResponse || fallbackDevices
+  const apiDevices = Array.isArray(devicesData) 
+    ? devicesData 
+    : devicesData?.devices || []
   
   // Extract jobs from paginated response
   const jobs = Array.isArray(jobsData?.items) ? jobsData.items : []
@@ -709,6 +739,8 @@ export default function RunningPage() {
     console.log('🔍 WebSocket useEffect triggered')
     console.log('🔍 websocket object:', websocket)
     console.log('🔍 websocket.lastMessage:', websocket?.lastMessage)
+    console.log('🔍 websocket.isConnected:', websocket?.isConnected)
+    console.log('🔍 websocket.state:', websocket?.state)
     
     if (!websocket?.lastMessage) {
       console.log('❌ No WebSocket message')
@@ -804,15 +836,20 @@ export default function RunningPage() {
       if (jobData.username || jobData.account_username || jobData.current_username) {
         const username = jobData.username || jobData.account_username || jobData.current_username
         console.log('👤 UPDATING ACTIVE USERNAME for device', targetDeviceId, ':', username)
+        console.log('👤 Full jobData received:', jobData)
         
-        setActiveUsernames(prev => ({
-          ...prev,
-          [targetDeviceId]: {
-            username: username,
-            account_id: jobData.account_id || '',
-            timestamp: Date.now()
+        setActiveUsernames(prev => {
+          const newState = {
+            ...prev,
+            [targetDeviceId]: {
+              username: username,
+              account_id: jobData.account_id || '',
+              timestamp: Date.now()
+            }
           }
-        }))
+          console.log('👤 NEW activeUsernames state:', newState)
+          return newState
+        })
       } else if (jobData.account_id) {
         // If no username in WebSocket but we have account_id, try to find username from local accounts
         const account = accounts.find((acc: any) => acc.id === jobData.account_id)
@@ -960,7 +997,7 @@ export default function RunningPage() {
           days_config: warmupTemplate.days_config || warmupTemplate.days || [],
         }
 
-        const licenseContext = licenseAwareStorageService.getLicenseContext?.() || (window as any).getLicenseContext?.()
+        const licenseContext = getLicenseContext()
         const licenseId = licenseContext?.licenseKey || 'license_dev'
 
         console.log('🔥 Starting warmup for accounts:', warmupAccounts.map(a => a.username))
@@ -1745,10 +1782,16 @@ export default function RunningPage() {
       {/* Account Status Modal */}
       {accountStatus.open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setAccountStatus({ open: false })}>
-          <div className="w-full max-w-lg bg-white rounded-xl shadow-xl p-4" onClick={(e) => e.stopPropagation()}>
+          <div className="w-full max-w-4xl bg-white rounded-xl shadow-xl p-6" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center space-x-3">
                 <div className="text-base font-semibold">Accounts Status</div>
+                {/* Debug info for active usernames */}
+                <div className="text-xs text-gray-500">
+                  Active: {Object.keys(activeUsernames).map(deviceId => 
+                    `${deviceId}: ${activeUsernames[deviceId]?.username || 'none'}`
+                  ).join(', ') || 'none'}
+                </div>
                 {/* View switching tabs with slide animation */}
                 <div className="relative flex bg-gray-100 rounded-md p-0.5">
                   {/* Sliding background indicator */}
@@ -1822,57 +1865,66 @@ export default function RunningPage() {
                     })
                     .map((acc: any) => {
                   // Check if this account is currently processing
-                  const isCurrentlyProcessing = activeUsernames[accountStatus.deviceId!]?.username === acc.username
+                  const activeUsername = activeUsernames[accountStatus.deviceId!]
+                  const isCurrentlyProcessing = activeUsername?.username === acc.username
+                  
+                  // Debug logging for processing detection
+                  console.log(`🔍 Processing check for @${acc.username}:`, {
+                    deviceId: accountStatus.deviceId,
+                    activeUsername: activeUsername,
+                    isCurrentlyProcessing,
+                    allActiveUsernames: activeUsernames
+                  })
                   
                   return (
-                    <div key={acc.id || acc.username} className={`border rounded-lg p-3 ${
+                    <div key={acc.id || acc.username} className={`border rounded-lg p-4 ${
                       isCurrentlyProcessing ? 'bg-blue-50 border-blue-200' : 'bg-gray-50'
                     }`}>
-                      {/* Account Header */}
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center space-x-2">
-                          <span className="font-semibold text-gray-900">@{acc.username}</span>
-                          {isCurrentlyProcessing && (
-                            <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
-                              PROCESSING
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          {acc.last_post_time ? new Date(acc.last_post_time).toLocaleTimeString() : '—'}
-                        </div>
-                      </div>
-
-                      {/* Stats and Status */}
+                      {/* Account Row - Username and Stats Side by Side */}
                       <div className="flex items-center justify-between">
-                        {/* Stats Section */}
-                        <div className="flex items-center space-x-4">
+                        {/* Left Side - Username and Processing Badge */}
+                        <div className="flex items-center space-x-3">
+                          <div className="flex items-center space-x-2">
+                            <span className="font-semibold text-gray-900 text-lg">@{acc.username}</span>
+                            {isCurrentlyProcessing && (
+                              <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                                PROCESSING
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {acc.last_post_time ? new Date(acc.last_post_time).toLocaleTimeString() : '—'}
+                          </div>
+                        </div>
+
+                        {/* Center - Stats Section */}
+                        <div className="flex items-center space-x-6">
                           {accountsView === 'warmup' ? (
                             <>
-                              <div className="text-center">
-                                <div className="text-xs text-gray-500">Likes</div>
-                                <div className="font-semibold">{acc.warmup_stats?.likes_today || 0}</div>
+                              <div className="flex items-center space-x-2">
+                                <span className="text-xs text-gray-500">Likes:</span>
+                                <span className="font-semibold text-lg">{acc.warmup_stats?.likes_today || 0}</span>
                               </div>
-                              <div className="text-center">
-                                <div className="text-xs text-gray-500">Follows</div>
-                                <div className="font-semibold">{acc.warmup_stats?.follows_today || 0}</div>
+                              <div className="flex items-center space-x-2">
+                                <span className="text-xs text-gray-500">Follows:</span>
+                                <span className="font-semibold text-lg text-gray-400">0</span>
+                                <span className="text-xs text-gray-400">(disabled)</span>
                               </div>
-                              <div className="text-center">
-                                <div className="text-xs text-gray-500">Day</div>
-                                <div className="font-semibold">{acc.current_day || 1}</div>
+                              <div className="flex items-center space-x-2">
+                                <span className="text-xs text-gray-500">Day:</span>
+                                <span className="font-semibold text-lg">{acc.current_day || 1}</span>
                               </div>
                             </>
                           ) : (
-                            <div className="text-center">
-                              <div className="text-xs text-gray-500">Posts</div>
-                              <div className="font-semibold">{acc.posts_today} / {typeof acc.daily_target === 'number' && acc.daily_target > 0 ? acc.daily_target : acc.posts_total}</div>
+                            <div className="flex items-center space-x-2">
+                              <span className="text-xs text-gray-500">Posts:</span>
+                              <span className="font-semibold text-lg">{acc.posts_today} / {typeof acc.daily_target === 'number' && acc.daily_target > 0 ? acc.daily_target : acc.posts_total}</span>
                             </div>
                           )}
                         </div>
 
-                        {/* Status Section */}
-                        <div className="text-center">
-                          <div className="text-xs text-gray-500 mb-1">Status</div>
+                        {/* Right Side - Status Section */}
+                        <div className="flex items-center space-x-2">
                           {(() => {
                             const accountKey = acc.id || acc.username
                             
@@ -1888,7 +1940,7 @@ export default function RunningPage() {
                                 const isUrgent = warmupCountdownSeconds <= 60 // Last minute
                                 
                                 return (
-                                  <div className="flex flex-col items-center space-y-1">
+                                  <div className="flex items-center space-x-2">
                                     <div className="relative">
                                       <div className={`w-2 h-2 rounded-full absolute animate-ping ${isUrgent ? 'bg-blue-500' : 'bg-purple-500'}`}></div>
                                       <div className={`w-2 h-2 rounded-full relative ${isUrgent ? 'bg-blue-600' : 'bg-purple-600'}`}></div>
@@ -1900,7 +1952,7 @@ export default function RunningPage() {
                                 )
                               } else if (acc.warmup_completed_today) {
                                 return (
-                                  <div className="flex flex-col items-center space-y-1">
+                                  <div className="flex items-center space-x-2">
                                     <div className="relative">
                                       <div className="w-2 h-2 bg-green-500 rounded-full animate-ping absolute"></div>
                                       <div className="w-2 h-2 bg-green-600 rounded-full relative"></div>
@@ -1912,7 +1964,7 @@ export default function RunningPage() {
                                 )
                               } else {
                                 return (
-                                  <div className="flex flex-col items-center space-y-1">
+                                  <div className="flex items-center space-x-2">
                                     <div className="relative">
                                       <div className="w-2 h-2 bg-orange-500 rounded-full animate-ping absolute"></div>
                                       <div className="w-2 h-2 bg-orange-600 rounded-full relative"></div>
@@ -1934,7 +1986,7 @@ export default function RunningPage() {
                                 const isUrgent = countdownSeconds <= 30 // Last 30 seconds
                                 
                                 return (
-                                  <div className="flex flex-col items-center space-y-1">
+                                  <div className="flex items-center space-x-2">
                                     <div className="relative">
                                       <div className={`w-2 h-2 rounded-full absolute animate-ping ${isUrgent ? 'bg-red-500' : 'bg-orange-500'}`}></div>
                                       <div className={`w-2 h-2 rounded-full relative ${isUrgent ? 'bg-red-600' : 'bg-orange-600'}`}></div>
@@ -1946,7 +1998,7 @@ export default function RunningPage() {
                                 )
                               } else {
                                 return (
-                                  <div className="flex flex-col items-center space-y-1">
+                                  <div className="flex items-center space-x-2">
                                     <div className="relative">
                                       <div className="w-2 h-2 bg-green-500 rounded-full animate-ping absolute"></div>
                                       <div className="w-2 h-2 bg-green-600 rounded-full relative"></div>

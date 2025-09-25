@@ -332,18 +332,17 @@ class ThreadsWarmupTest(CheckpointSystem):
                                    current=self.likes_performed, 
                                    target=self.likes_count)
                 
-                # Randomly follow accounts during scrolling
-                if self.follows_performed < self.follows_count and self._should_perform_action():
-                    if await self._perform_follow(current_driver):
-                        self.follows_performed += 1
-                        logger.info("👥 Performed follow", 
-                                   current=self.follows_performed, 
-                                   target=self.follows_count)
+                # DISABLED: Randomly follow accounts during scrolling (follow process not working)
+                # if self.follows_performed < self.follows_count and self._should_perform_action():
+                #     if await self._perform_follow(current_driver):
+                #         self.follows_performed += 1
+                #         logger.info("👥 Performed follow", 
+                #                    current=self.follows_performed, 
+                #                    target=self.follows_count)
                 
-                # Check if we've completed all activities
-                if (self.likes_performed >= self.likes_count and 
-                    self.follows_performed >= self.follows_count):
-                    logger.info("🎉 All engagement activities completed early")
+                # Check if we've completed all activities (follows disabled)
+                if self.likes_performed >= self.likes_count:
+                    logger.info("🎉 All engagement activities completed early (likes only - follows disabled)")
                     break
                 
                 time.sleep(2)  # Brief pause between actions
