@@ -4,10 +4,12 @@ import { useState, useEffect, useRef, useMemo, memo } from "react"
 import { createPortal } from "react-dom"
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Dot, Area, AreaChart, Tooltip } from "recharts"
 import { Button } from "@/components/ui/button"
-import { ChevronDown, ExternalLink } from "lucide-react"
+import { ChevronDown, ExternalLink, RefreshCw } from "lucide-react"
+import { useQueryClient } from "@tanstack/react-query"
 import type { FollowersTrackingSummary, FollowersSeriesPoint } from "@/lib/types"
 import { useAccounts } from "@/lib/hooks/use-accounts"
 import { useModels } from "@/lib/hooks/use-models"
+import { useFollowerTracking } from "@/lib/hooks/use-tracking"
 import Link from "next/link"
 
 interface FollowersGrowthChartProps {
@@ -77,6 +79,16 @@ const FollowersGrowthChart = memo(function FollowersGrowthChart({ className, act
   // Get real data from APIs
   const { data: accountsData } = useAccounts()
   const { data: modelsData } = useModels()
+  const { data: trackingResponse, refetch: refetchTracking } = useFollowerTracking()
+  const queryClient = useQueryClient()
+
+  // Function to clear cached tracking data
+  const clearTrackingCache = () => {
+    console.log('🧹 DASHBOARD CHART - Clearing tracking cache')
+    queryClient.removeQueries({ queryKey: ['tracking'] })
+    localStorage.removeItem('tracking_data') // Remove any localStorage cache
+    refetchTracking()
+  }
 
   const timeRanges = [
     { label: "7d", value: "7d", days: 7 },
@@ -99,11 +111,84 @@ const FollowersGrowthChart = memo(function FollowersGrowthChart({ className, act
       .sort()
   }, [accountsData])
 
-  // Use real data or empty array
+  // Use real tracking data or generate placeholder data showing zero line
   const chartData = useMemo(() => {
-    // TODO: Replace with real follower tracking data
-    return []
-  }, [timeRange])
+    const selectedRange = timeRanges.find(r => r.value === timeRange)
+    const days = selectedRange?.days || 14
+    
+    // Debug: Log what tracking data we received
+    console.log('📊 DASHBOARD CHART - Raw tracking response:', trackingResponse)
+    console.log('📊 DASHBOARD CHART - Tracking data exists:', !!trackingResponse?.tracking_data)
+    console.log('📊 DASHBOARD CHART - Tracking data length:', trackingResponse?.tracking_data?.length)
+    
+    // If we have real tracking data, process it
+    if (trackingResponse?.tracking_data && trackingResponse.tracking_data.length > 0) {
+      console.log('📊 DASHBOARD CHART - Processing real tracking data:', trackingResponse.tracking_data.length, 'entries')
+      console.log('📊 DASHBOARD CHART - First few entries:', trackingResponse.tracking_data.slice(0, 3))
+      
+      // Group tracking data by date and sum followers across all accounts
+      const dateMap = new Map<string, number>()
+      
+      trackingResponse.tracking_data.forEach((entry, index) => {
+        // Validate that this is real data, not mock data
+        if (!entry.username || !entry.scan_timestamp || typeof entry.followers_count !== 'number') {
+          console.warn('📊 DASHBOARD CHART - Invalid tracking entry:', entry)
+          return
+        }
+        
+        const date = entry.scan_timestamp.split('T')[0] // Extract date part
+        const currentTotal = dateMap.get(date) || 0
+        dateMap.set(date, currentTotal + entry.followers_count)
+        
+        if (index < 5) { // Log first 5 entries for debugging
+          console.log(`📊 DASHBOARD CHART - Entry ${index}:`, {
+            username: entry.username,
+            followers: entry.followers_count,
+            date: date,
+            timestamp: entry.scan_timestamp,
+            isToday: date === new Date().toISOString().split('T')[0]
+          })
+        }
+      })
+      
+      // Create array of data points for the selected time range
+      const realData = []
+      const today = new Date()
+      
+      for (let i = days - 1; i >= 0; i--) {
+        const date = new Date(today)
+        date.setDate(date.getDate() - i)
+        const dateString = date.toISOString().split('T')[0]
+        
+        realData.push({
+          date: dateString,
+          total_followers: dateMap.get(dateString) || 0,
+          new_followers: 0 // TODO: Calculate new followers from previous day
+        })
+      }
+      
+      console.log('📊 DASHBOARD CHART - Generated chart data:', realData)
+      return realData
+    }
+    
+    // No real data available - generate a flat line at zero to show the chart structure
+    console.log('📊 DASHBOARD CHART - No tracking data, showing zero baseline')
+    const placeholderData = []
+    const today = new Date()
+    
+    for (let i = days - 1; i >= 0; i--) {
+      const date = new Date(today)
+      date.setDate(date.getDate() - i)
+      
+      placeholderData.push({
+        date: date.toISOString().split('T')[0],
+        total_followers: 0,
+        new_followers: 0
+      })
+    }
+    
+    return placeholderData
+  }, [timeRange, trackingResponse])
 
   // Set data once when chartData changes
   useEffect(() => {
@@ -156,6 +241,15 @@ const FollowersGrowthChart = memo(function FollowersGrowthChart({ className, act
                 {range.label}
               </button>
             ))}
+            <Button
+              onClick={clearTrackingCache}
+              variant="outline"
+              size="sm"
+              className="h-7 px-2 text-xs rounded-full ml-2"
+              title="Clear cached data and refresh"
+            >
+              <RefreshCw className="w-3 h-3" />
+            </Button>
           </div>
 
           {/* Model selector */}
@@ -300,8 +394,8 @@ const FollowersGrowthChart = memo(function FollowersGrowthChart({ className, act
                 axisLine={false}
                 tickLine={false}
                 tick={{ fontSize: 11, fill: "#6b7280", fontWeight: 500 }}
-                tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`}
-                domain={['dataMin - 1000', 'dataMax + 1000']}
+                tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(0)}k` : value.toString()}
+                domain={[0, 'dataMax + 100']}
               />
               <Tooltip 
                 content={<CustomTooltip />}
@@ -333,12 +427,18 @@ const FollowersGrowthChart = memo(function FollowersGrowthChart({ className, act
         <div className="text-sm text-muted-foreground">
           {data.length > 0 && (
             <>
-              Total: {data[data.length - 1]?.total_followers.toLocaleString()} followers
-              {data.length > 1 && (
-                <span className="ml-2">
-                  (+{(data[data.length - 1]?.total_followers - data[0]?.total_followers).toLocaleString()} in{" "}
-                  {timeRange})
-                </span>
+              {data[data.length - 1]?.total_followers > 0 ? (
+                <>
+                  Total: {data[data.length - 1]?.total_followers.toLocaleString()} followers
+                  {data.length > 1 && (
+                    <span className="ml-2">
+                      (+{(data[data.length - 1]?.total_followers - data[0]?.total_followers).toLocaleString()} in{" "}
+                      {timeRange})
+                    </span>
+                  )}
+                </>
+              ) : (
+                <span className="text-gray-500">No tracking data yet - chart shows baseline</span>
               )}
             </>
           )}

@@ -308,7 +308,13 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
         // Let job_update messages pass through to component handlers
         console.log('📊 JOB_UPDATE MESSAGE RECEIVED:', JSON.stringify(message, null, 2))
         console.log('📊 Passing job_update to component handlers')
-        // Don't consume the message - let components handle it
+        // Message will be consumed by component handlers
+        break
+      case 'account_status_update':
+        // Let account_status_update messages pass through to component handlers
+        console.log('📊 ACCOUNT_STATUS_UPDATE MESSAGE RECEIVED:', JSON.stringify(message, null, 2))
+        console.log('📊 Passing account_status_update to component handlers')
+        // Message will be consumed by component handlers
         break
       case 'system_notification':
         handleSystemNotification(message as SystemNotification)

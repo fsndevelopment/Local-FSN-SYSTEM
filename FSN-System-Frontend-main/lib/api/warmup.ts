@@ -8,36 +8,45 @@ import { getLicenseContext } from '@/lib/services/license-api-service'
 import { apiClient } from './client'
 
 // Warmup Template interfaces
+export interface WarmupTemplateDayConfig {
+  day_number: number
+  scroll_minutes: number
+  likes_count: number
+  follows_count: number
+}
+
 export interface WarmupTemplate {
   id: number
   name: string
   description?: string
   platform: 'instagram' | 'threads'
-  phase: 'phase_1' | 'phase_2' | 'phase_3'
-  actions: any[]
-  settings: any
-  is_active: boolean
+  days_config: WarmupTemplateDayConfig[]
+  license_id?: string
+  is_active?: boolean
   created_at: string
-  updated_at: string
+  updated_at?: string
 }
 
 export interface WarmupTemplateCreate {
   name: string
-  description?: string
   platform: 'instagram' | 'threads'
-  phase: 'phase_1' | 'phase_2' | 'phase_3'
-  actions: any[]
-  settings: any
-  is_active?: boolean
+  total_days: number
+  days_config: WarmupTemplateDayConfig[]
+  scroll_minutes_per_day: number
+  likes_per_day: number
+  follows_per_day: number
+  posting_interval_minutes: number
 }
 
 export interface WarmupTemplateUpdate {
   name?: string
-  description?: string
   platform?: 'instagram' | 'threads'
-  phase?: 'phase_1' | 'phase_2' | 'phase_3'
-  actions?: any[]
-  settings?: any
+  total_days?: number
+  days_config?: WarmupTemplateDayConfig[]
+  scroll_minutes_per_day?: number
+  likes_per_day?: number
+  follows_per_day?: number
+  posting_interval_minutes?: number
   is_active?: boolean
 }
 
@@ -50,8 +59,8 @@ interface ApiResponse<T> {
 interface WarmupTemplateListResponse {
   items: WarmupTemplate[]
   total: number
-  page: number
-  size: number
+  skip: number
+  limit: number
   pages: number
 }
 

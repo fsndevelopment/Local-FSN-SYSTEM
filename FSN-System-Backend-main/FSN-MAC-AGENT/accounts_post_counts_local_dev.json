@@ -1,0 +1,24 @@
+[
+  {
+    "id": "1758537650306",
+    "device_id": "device-1758399156",
+    "username": "yourm1tzi",
+    "platform": "threads",
+    "container_number": "1",
+    "posts_total": 12,
+    "posts_today": 0,
+    "last_post_at": "2025-09-25T10:03:07.259067",
+    "last_reset": "2025-09-26"
+  },
+  {
+    "id": "1758539085224",
+    "device_id": "device-1758399156",
+    "username": "mitziisyours",
+    "platform": "threads",
+    "container_number": "2",
+    "posts_total": 10,
+    "posts_today": 0,
+    "last_post_at": "2025-09-25T10:09:45.243209",
+    "last_reset": "2025-09-26"
+  }
+]

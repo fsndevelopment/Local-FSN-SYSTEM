@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Check Frontend Templates</title>
+</head>
+<body>
+    <h1>Frontend Template Storage Check</h1>
+    <div id="output"></div>
+    
+    <script>
+        function checkTemplates() {
+            const output = document.getElementById('output');
+            
+            // Check localStorage for templates
+            const templates = JSON.parse(localStorage.getItem('templates') || '[]');
+            
+            output.innerHTML = `
+                <h2>Templates in localStorage:</h2>
+                <pre>${JSON.stringify(templates, null, 2)}</pre>
+                
+                <h2>Template Analysis:</h2>
+                <ul>
+                    ${templates.map((template, index) => `
+                        <li>
+                            <strong>Template ${index + 1}:</strong> ${template.name || 'Unnamed'}
+                            <br>postingIntervalMinutes: ${template.postingIntervalMinutes || 'NOT SET'}
+                            <br>textPostsPerDay: ${template.textPostsPerDay || 'NOT SET'}
+                        </li>
+                    `).join('')}
+                </ul>
+            `;
+        }
+        
+        // Run check when page loads
+        checkTemplates();
+    </script>
+</body>
+</html>

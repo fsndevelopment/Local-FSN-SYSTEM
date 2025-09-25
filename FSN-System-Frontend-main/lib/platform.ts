@@ -5,12 +5,12 @@
  * - SSR-safe to prevent hydration mismatches
  */
 
-export type Platform = 'all' | 'instagram' | 'threads'
+export type Platform = 'instagram' | 'threads'
 
 const STORAGE_KEY = 'platform'
 
 // SSR-safe default
-const DEFAULT_PLATFORM: Platform = 'all'
+const DEFAULT_PLATFORM: Platform = 'instagram'
 
 export function getPlatform(): Platform {
   if (typeof window === 'undefined') {
@@ -18,7 +18,14 @@ export function getPlatform(): Platform {
   }
   
   const saved = window.localStorage.getItem(STORAGE_KEY) as Platform | null
-  if (saved === 'all' || saved === 'instagram' || saved === 'threads') {
+  
+  // Handle migration from 'all' to 'instagram'
+  if (saved === 'all' || saved === null) {
+    setPlatform(DEFAULT_PLATFORM)
+    return DEFAULT_PLATFORM
+  }
+  
+  if (saved === 'instagram' || saved === 'threads') {
     return saved
   }
   

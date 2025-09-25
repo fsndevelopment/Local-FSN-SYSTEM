@@ -36,6 +36,155 @@ app.add_middleware(
 
 # Persistent storage for devices and jobs
 DEVICES_FILE = "devices_storage.json"
+ACCOUNTS_FILE = "accounts_storage.json"  # Default fallback; replaced by license-aware path below
+
+# Per-account posting tracking (license-aware)
+def get_post_tracking_file_path() -> str:
+    current_key = license_key or load_license_key()
+    safe_key = _sanitize_license_for_filename(current_key)
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(base_dir, f"accounts_post_counts_{safe_key}.json")
+
+def load_account_post_tracking() -> list:
+    try:
+        fp = get_post_tracking_file_path()
+        if os.path.exists(fp):
+            with open(fp, 'r') as f:
+                return json.load(f)
+    except Exception as e:
+        print(f"⚠️ Failed to load account post tracking: {e}")
+    return []
+
+def save_account_post_tracking(data: list) -> None:
+    try:
+        fp = get_post_tracking_file_path()
+        with open(fp, 'w') as f:
+            json.dump(data, f, indent=2)
+        print(f"💾 Saved account post tracking: {fp}")
+    except Exception as e:
+        print(f"⚠️ Failed to save account post tracking: {e}")
+
+def reset_daily_post_counts_if_new_day() -> None:
+    """Reset posts_today for all accounts at midnight (license-aware file)."""
+    try:
+        tracking = load_account_post_tracking()
+        if not tracking:
+            return
+        today = datetime.now().date().isoformat()
+        changed = False
+        for entry in tracking:
+            if entry.get('last_reset') != today:
+                entry['posts_today'] = 0
+                entry['last_reset'] = today
+                changed = True
+        if changed:
+            save_account_post_tracking(tracking)
+            print("🗓️ Daily post counters reset to 0 for all accounts")
+    except Exception as e:
+        print(f"⚠️ Failed to reset daily post counts: {e}")
+
+def get_posts_today_for_account(account_id: str, username: Optional[str], device_id: str) -> int:
+    """Read posts_today for an account from tracking storage (0 if missing)."""
+    try:
+        tracking = load_account_post_tracking()
+        today = datetime.now().date().isoformat()
+        for entry in tracking:
+            if (
+                str(entry.get('id')) == str(account_id)
+            ) or (
+                username and str(entry.get('username')) == str(username) and str(entry.get('device_id')) == str(device_id)
+            ):
+                # Ensure daily reset if file wasn't updated yet today
+                if entry.get('last_reset') != today:
+                    return 0
+                return int(entry.get('posts_today') or 0)
+    except Exception as e:
+        print(f"⚠️ Failed to read posts_today: {e}")
+    return 0
+
+def increment_account_post_count(device_id: str, username_hint: Optional[str] = None) -> None:
+    """Increment post counters for the primary account assigned to this device (or matching username)."""
+    try:
+        # Prefer a specific account match if provided; otherwise pick the first account for device
+        # Prefer currently active account for this device if available
+        if 'CURRENT_ACCOUNT' in globals() and CURRENT_ACCOUNT.get(device_id):
+            accounts = [CURRENT_ACCOUNT[device_id]]
+        else:
+            accounts = DEVICE_ACCOUNTS.get(device_id, []) if 'DEVICE_ACCOUNTS' in globals() else []
+        if not accounts:
+            # Fallback: load all and filter by device
+            accounts = [a for a in load_accounts() if str(a.get('device_id')) == str(device_id)]
+        if not accounts:
+            print(f"⚠️ No accounts found for device {device_id}; cannot increment post count")
+            return
+        target = None
+        if username_hint:
+            for a in accounts:
+                if str(a.get('username')) == str(username_hint):
+                    target = a
+                    break
+        if target is None:
+            target = accounts[0]
+
+        tracking = load_account_post_tracking()
+        # Find existing entry by account id or username+device
+        found = None
+        for entry in tracking:
+            if (
+                str(entry.get('id')) == str(target.get('id'))
+            ) or (
+                str(entry.get('username')) == str(target.get('username'))
+                and str(entry.get('device_id')) == str(device_id)
+            ):
+                found = entry
+                break
+        now_iso = datetime.now().isoformat()
+        if found is None:
+            found = {
+                'id': str(target.get('id')),
+                'device_id': str(device_id),
+                'username': str(target.get('username')),
+                'platform': target.get('platform') or 'threads',
+                'container_number': str(target.get('container_number')),
+                'posts_total': 0,
+                'posts_today': 0,
+                'last_post_at': None,
+                'last_reset': datetime.now().date().isoformat(),
+            }
+            tracking.append(found)
+
+        # Daily reset if needed
+        last_reset = found.get('last_reset')
+        today = datetime.now().date().isoformat()
+        if last_reset != today:
+            found['posts_today'] = 0
+            found['last_reset'] = today
+
+        found['posts_total'] = int(found.get('posts_total') or 0) + 1
+        found['posts_today'] = int(found.get('posts_today') or 0) + 1
+        found['last_post_at'] = now_iso
+
+        save_account_post_tracking(tracking)
+        print(f"📈 Incremented post count for @{found['username']} (device {device_id}) → total={found['posts_total']} today={found['posts_today']}")
+    except Exception as e:
+        print(f"⚠️ Failed to increment account post count: {e}")
+
+def _sanitize_license_for_filename(license_str: Optional[str]) -> str:
+    """Sanitize license key for safe filename usage."""
+    if not license_str:
+        return "local_dev"
+    # Keep alphanumerics and a few safe chars
+    safe = ''.join(ch for ch in str(license_str) if ch.isalnum() or ch in ('-', '_'))
+    return safe or "local_dev"
+
+def get_accounts_file_path() -> str:
+    """Return license-aware accounts file path (per-license storage)."""
+    # Use already-loaded license_key if available; otherwise try to load
+    current_key = license_key or load_license_key()
+    safe_key = _sanitize_license_for_filename(current_key)
+    # Store next to this backend file to keep it self-contained per install
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(base_dir, f"accounts_{safe_key}.json")
 
 def load_devices():
     """Load devices from persistent storage"""
@@ -58,12 +207,109 @@ def save_devices():
     except Exception as e:
         print(f"⚠️ Failed to save devices to storage: {e}")
 
+def load_accounts():
+    """Load accounts from persistent storage"""
+    try:
+        accounts_file = get_accounts_file_path()
+        if os.path.exists(accounts_file):
+            with open(accounts_file, 'r') as f:
+                data = json.load(f)
+                print(f"📂 Loaded {len(data)} accounts from storage: {accounts_file}")
+                return data
+    except Exception as e:
+        print(f"⚠️ Failed to load accounts from storage: {e}")
+    return []
+
+def save_accounts(accounts_data):
+    """Save accounts to persistent storage"""
+    try:
+        accounts_file = get_accounts_file_path()
+        with open(accounts_file, 'w') as f:
+            json.dump(accounts_data, f, indent=2)
+        print(f"💾 Saved {len(accounts_data)} accounts to storage: {accounts_file}")
+    except Exception as e:
+        print(f"⚠️ Failed to save accounts to storage: {e}")
+
+def get_account_phase(account_id: str) -> str:
+    """Get account phase (warmup/posting) from accounts file"""
+    try:
+        accounts = load_accounts()
+        for account in accounts:
+            if str(account.get('id')) == str(account_id):
+                return account.get('account_phase', 'posting')
+    except Exception as e:
+        print(f"⚠️ Failed to get account phase for {account_id}: {e}")
+    return 'posting'  # Default to posting if not found
+
 # Load devices from storage on startup
 devices = load_devices()
 jobs = []
 running_appium_processes = {}  # device_id -> process
 active_jobs = {}  # job_id -> job_info
+DEVICE_ACCOUNTS = {}  # device_id -> list of accounts
+DEVICE_TEMPLATES = {}  # device_id -> template_data
+LAST_ACCOUNT_SESSIONS = {}  # account_id -> last_post_timestamp
 job_history = []  # completed jobs
+
+# -------------------------------
+# Session tracking and account management
+# -------------------------------
+
+SESSION_TRACKING_FILE = "account_sessions.json"
+
+def load_session_data():
+    """Load session tracking data from file"""
+    global LAST_ACCOUNT_SESSIONS
+    try:
+        if os.path.exists(SESSION_TRACKING_FILE):
+            with open(SESSION_TRACKING_FILE, 'r') as f:
+                LAST_ACCOUNT_SESSIONS = json.load(f)
+                print(f"📊 Loaded session data for {len(LAST_ACCOUNT_SESSIONS)} accounts")
+        else:
+            LAST_ACCOUNT_SESSIONS = {}
+            print("📊 No existing session data found")
+    except Exception as e:
+        print(f"⚠️ Failed to load session data: {e}")
+        LAST_ACCOUNT_SESSIONS = {}
+
+def save_session_data():
+    """Save session tracking data to file"""
+    try:
+        with open(SESSION_TRACKING_FILE, 'w') as f:
+            json.dump(LAST_ACCOUNT_SESSIONS, f, indent=2)
+        print(f"💾 Saved session data for {len(LAST_ACCOUNT_SESSIONS)} accounts")
+    except Exception as e:
+        print(f"⚠️ Failed to save session data: {e}")
+
+# Load session data on startup
+load_session_data()
+
+def get_post_tracking_file_path():
+    """Get the path for the post tracking file"""
+    key = license_key or load_license_key()
+    safe_key = key.replace(" ", "_").replace("-", "_") if key else "local_dev"
+    return f"accounts_post_counts_{safe_key}.json"
+
+def load_account_post_tracking():
+    """Load account post tracking data"""
+    try:
+        file_path = get_post_tracking_file_path()
+        if os.path.exists(file_path):
+            with open(file_path, 'r') as f:
+                return json.load(f)
+        return []
+    except Exception as e:
+        print(f"⚠️ Failed to load post tracking: {e}")
+        return []
+
+def save_account_post_tracking(data: list):
+    """Save account post tracking data"""
+    try:
+        file_path = get_post_tracking_file_path()
+        with open(file_path, 'w') as f:
+            json.dump(data, f, indent=2)
+    except Exception as e:
+        print(f"⚠️ Failed to save post tracking: {e}")
 
 # -------------------------------
 # Simple WebSocket connection manager
@@ -82,25 +328,31 @@ def get_active_connection_count() -> int:
 async def get_account_by_device_id(device_id: str):
     """Get account information by device_id from database"""
     try:
-        # Use requests instead of aiohttp to avoid dependency issues
-        import requests
-        
-        # Make API call to get accounts for this device
-        response = requests.get(f"http://localhost:8000/api/v1/accounts?device_id={device_id}", timeout=10)
-        if response.status_code == 200:
-            data = response.json()
-            accounts = data.get('items', [])
-            if accounts:
-                # Return the first account (assuming one account per device for now)
-                account = accounts[0]
-                print(f"🔍 Found account: {account.get('username')} with container_number: {account.get('container_number')}")
+        # 1) Check local persistent accounts storage first (synced from frontend localStorage)
+        accounts_data = load_accounts()
+        if accounts_data:
+            matching = [a for a in accounts_data if str(a.get('device_id')) == str(device_id)]
+            if matching:
+                account = matching[0]
+                print(f"🔍 Found local account: {account.get('username')} with container_number: {account.get('container_number')}")
                 return account
-            else:
-                print(f"🔍 No accounts found for device {device_id}")
-                return None
-        else:
-            print(f"🔍 Failed to get accounts for device {device_id}: {response.status_code}")
-            return None
+
+        # 2) Fallback: Try HTTP API if available
+        try:
+            import requests
+            response = requests.get(f"http://localhost:8000/api/v1/accounts?device_id={device_id}", timeout=3)
+            if response.status_code == 200:
+                data = response.json()
+                accounts = data.get('items', [])
+                if accounts:
+                    account = accounts[0]
+                    print(f"🔍 Found HTTP account: {account.get('username')} with container_number: {account.get('container_number')}")
+                    return account
+        except Exception as http_err:
+            print(f"🔍 HTTP accounts lookup failed: {http_err}")
+        
+        print(f"🔍 No accounts found for device {device_id}")
+        return None
     except Exception as e:
         print(f"🔍 Error getting account for device {device_id}: {e}")
         return None
@@ -148,6 +400,243 @@ async def start_template_execution_job(device_id: str, template_data: dict = Non
     except Exception as e:
         print(f"❌ Failed to start template execution job: {e}")
         return None
+
+async def start_warmup_automation(device_id: str, warmup_accounts: list) -> str:
+    """Start warmup automation for accounts in warmup phase"""
+    try:
+        # Generate job ID
+        job_id = f"warmup_{uuid.uuid4().hex[:8]}"
+        
+        # Create job info for warmup
+        job_info = {
+            "id": job_id,
+            "device_id": device_id,
+            "type": "warmup",
+            "accounts": warmup_accounts,
+            "status": "pending",
+            "created_at": datetime.now().isoformat(),
+            "started_at": None,
+            "completed_at": None,
+            "current_step": "pending",
+            "progress": 0,
+            "results": [],
+            "errors": []
+        }
+        
+        active_jobs[job_id] = job_info
+        
+        # Start warmup execution in background
+        asyncio.create_task(execute_warmup_job(job_id))
+        
+        # Send initial job status update
+        await update_job_status(job_id, "initializing", "Starting warmup automation...", 5)
+        
+        print(f"🔥 Started warmup automation job {job_id} for device {device_id}")
+        return job_id
+        
+    except Exception as e:
+        print(f"❌ Failed to start warmup automation: {e}")
+        return None
+
+async def execute_warmup_job(job_id: str):
+    """Execute the warmup job"""
+    job_info = active_jobs.get(job_id)
+    if not job_info:
+        print(f"❌ Warmup job {job_id} not found")
+        return
+    
+    try:
+        device_id = job_info["device_id"]
+        warmup_accounts = job_info["accounts"]
+        
+        print(f"🔥 Executing warmup job {job_id} for device {device_id}")
+        
+        # Update status
+        await update_job_status(job_id, "running", "Running warmup for accounts", 10)
+        
+        # Get device info
+        device = None
+        for d in devices:
+            if d.get("id") == device_id:
+                device = d
+                break
+        
+        if not device:
+            raise Exception(f"Device {device_id} not found")
+        
+        # Run warmup for each account
+        for account in warmup_accounts:
+            username = account.get('username', 'unknown')
+            account_id = account.get('id')
+            
+            print(f"🔥 Running warmup for account @{username}")
+            await update_job_status(job_id, "running", f"Running warmup for @{username}", 20)
+            
+            # Broadcast warmup start
+            await broadcast_account_processing(device_id, username, account_id, "Starting warmup automation")
+            
+            try:
+                # Create default warmup template data
+                warmup_template_data = {
+                    "id": "default_warmup",
+                    "name": "Default Warmup Template",
+                    "total_days": 1,
+                    "days_config": [
+                        {
+                            "day_number": 1,
+                            "scroll_minutes": 10,
+                            "likes_count": 5,
+                            "follows_count": 2
+                        }
+                    ]
+                }
+                
+                # Execute warmup for this account
+                await execute_warmup_for_account(device, account, warmup_template_data, f"warmup_{account_id}")
+                
+                print(f"✅ Warmup completed for @{username}")
+                await broadcast_account_processing(device_id, username, account_id, "Warmup completed successfully")
+                
+            except Exception as e:
+                print(f"❌ Warmup failed for @{username}: {e}")
+                await broadcast_account_processing(device_id, username, account_id, f"Warmup failed: {e}")
+                job_info["errors"].append(f"Account @{username}: {e}")
+        
+        # Mark job as completed
+        await update_job_status(job_id, "completed", "Warmup automation completed", 100)
+        job_info["completed_at"] = datetime.now().isoformat()
+        
+        print(f"✅ Warmup job {job_id} completed")
+        
+    except Exception as e:
+        print(f"❌ Warmup job {job_id} failed: {e}")
+        await update_job_status(job_id, "failed", f"Warmup failed: {e}", 0)
+        job_info["errors"].append(str(e))
+
+async def execute_warmup_for_account(device: dict, account: dict, warmup_template_data: dict, job_id: str):
+    """Execute warmup activities for a single account"""
+    try:
+        username = account.get('username', 'unknown')
+        account_id = str(account.get('id', ''))
+        
+        print(f"🔥 Starting warmup for account @{username}")
+        
+        # Check if warmup already completed today (you can implement this logic)
+        # For now, we'll always run warmup
+        
+        # Get current day and settings
+        current_day = 1  # Default to day 1
+        days_config = warmup_template_data.get('days_config', [])
+        
+        # Find day configuration
+        day_config = None
+        for day in days_config:
+            if day.get('day_number') == current_day:
+                day_config = day
+                break
+        
+        if not day_config:
+            print(f"⚠️ No configuration found for day {current_day} - using defaults")
+            day_config = {
+                'scroll_minutes': 10,
+                'likes_count': 5,
+                'follows_count': 2
+            }
+        
+        print(f"📅 Executing Day {current_day} warmup:")
+        print(f"   Scroll: {day_config.get('scroll_minutes', 0)} minutes")
+        print(f"   Likes: {day_config.get('likes_count', 0)}")
+        print(f"   Follows: {day_config.get('follows_count', 0)}")
+        print(f"🎯 Warmup will take approximately {day_config.get('scroll_minutes', 0)} minutes for scrolling")
+        
+        # Import and execute warmup test
+        import sys
+        import os
+        
+        # Add the platforms directory to Python path
+        platforms_path = "/Users/jacqubsf/Downloads/Telegram Desktop/FSN-System-Backend-main/FSN-System-Backend-main"
+        sys.path.append(platforms_path)
+        
+        # Import the warmup test
+        import importlib.util
+        spec = importlib.util.spec_from_file_location(
+            "warmup_test", 
+            f"{platforms_path}/platforms/threads/working_tests/warmup_engagement_test.py"
+        )
+        warmup_module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(warmup_module)
+        ThreadsWarmupTest = warmup_module.ThreadsWarmupTest
+        
+        # Switch to correct container for jailbroken devices
+        if device.get("jailbroken", False):
+            print(f"🔄 Switching to Crane container for warmup on device {device.get('id')}")
+            account_info = {
+                "platform": "threads",
+                "username": username,
+                "container_number": str(account.get("container_number", "1"))
+            }
+            await execute_crane_container_switch(device.get('id'), f"warmup_{account_id}", account_info)
+        
+        # Execute warmup activities
+        print(f"🎯 Running warmup activities for @{username}...")
+        warmup_test = ThreadsWarmupTest(
+            scroll_minutes=day_config.get('scroll_minutes', 0),
+            likes_count=day_config.get('likes_count', 0),
+            follows_count=day_config.get('follows_count', 0),
+            expected_username=username,
+            device_type=device.get("jailbroken", False) and "jailbroken" or "non-jailbroken",
+            container_id=account.get("container_number")
+        )
+        
+        result = await warmup_test.run_full_test()
+        
+        if result.get('success'):
+            print(f"✅ Warmup completed successfully for @{username}")
+        else:
+            print(f"❌ Warmup failed for @{username}: {result.get('error', 'Unknown error')}")
+            
+    except Exception as e:
+        print(f"❌ Error in warmup for account @{username}: {e}")
+        raise
+
+async def broadcast_account_processing(device_id: str, username: str, account_id: str, step: str):
+    """Broadcast account processing updates via WebSocket"""
+    try:
+        message = {
+            "type": "job_update",
+            "data": {
+                "device_id": device_id,
+                "username": username,
+                "account_id": account_id,
+                "current_step": step,
+                "progress": 0,
+                "timestamp": datetime.now().isoformat()
+            },
+            "timestamp": datetime.now().isoformat()
+        }
+        
+        print(f"📡 BROADCASTING ACCOUNT PROCESSING: device={device_id}, username={username}, step={step}")
+        print(f"📡 WebSocket message: {json.dumps(message, indent=2)}")
+        
+        # Send to all connected WebSocket clients
+        if active_websocket_connections:
+            disconnected = set()
+            for websocket in active_websocket_connections:
+                try:
+                    await websocket.send_text(json.dumps(message))
+                    print(f"✅ Sent account processing WebSocket message to connection")
+                except Exception as e:
+                    print(f"⚠️ Failed to send WebSocket message: {e}")
+                    disconnected.add(websocket)
+            
+            # Remove disconnected connections
+            for ws in disconnected:
+                active_websocket_connections.discard(ws)
+        else:
+            print(f"⚠️ No active WebSocket connections to send account processing update")
+            
+    except Exception as e:
+        print(f"❌ Failed to broadcast account processing update: {e}")
 
 async def execute_template_job(job_id: str):
     """Execute the template job"""
@@ -247,7 +736,7 @@ async def execute_template_job(job_id: str):
             job_history.append(job_info_clean)
             del active_jobs[job_id]
 
-async def execute_crane_container_switch(device_id: str, job_id: str):
+async def execute_crane_container_switch(device_id: str, job_id: str, account_info: dict = None):
     """Execute Crane container switching for jailbroken devices"""
     try:
         # Get device info
@@ -268,18 +757,19 @@ async def execute_crane_container_switch(device_id: str, job_id: str):
         platforms_path = "/Users/jacqubsf/Downloads/Telegram Desktop/FSN-System-Backend-main/FSN-System-Backend-main"
         sys.path.append(platforms_path)
         
-        from api.services.crane_account_switching import complete_crane_account_switch_flow
+        from api.services.crane_account_switching import crane_threads_account_switching
         
-        # Get assigned accounts for this device
-        # For now, we'll use a default account - in real implementation, this would come from the template/device assignment
-        account_info = {
-            "platform": "threads",
-            "username": "default_user",  # This should come from device assignment
-            "container_name": f"threads_container_{device_id}"
-        }
+        # Use provided account info or default
+        if not account_info:
+            account_info = {
+                "platform": "threads",
+                "username": "default_user",
+                "container_name": f"threads_container_{device_id}",
+                "container_number": "2"
+            }
         
-        # Execute container switch
-        result = await complete_crane_account_switch_flow(device, account_info)
+        # Execute container switch (pass UDID string, not entire device dict)
+        result = await crane_threads_account_switching.complete_crane_account_switch_flow(device.get("udid"), account_info.get("container_number", "2"), "threads")
         
         if result:
             print(f"✅ Crane container switch successful for device {device_id}")
@@ -290,7 +780,7 @@ async def execute_crane_container_switch(device_id: str, job_id: str):
         print(f"❌ Error in Crane container switching: {e}")
         # Don't raise - continue with automation even if container switch fails
 
-def download_photo_via_safari_proven_method(driver, photo_url):
+async def download_photo_via_safari_proven_method(driver, photo_url):
     """
     Download photo via Safari using the proven method from picture.py
     """
@@ -318,7 +808,7 @@ def download_photo_via_safari_proven_method(driver, photo_url):
         
         # Clear and type the URL
         final_url_field.clear()
-        time.sleep(0.5)
+        await asyncio.sleep(0.5)  # ASYNC VERSION TO NOT BLOCK WEBSOCKETS
         final_url_field.send_keys(photo_url)
         
         # Click Go button
@@ -340,7 +830,7 @@ def download_photo_via_safari_proven_method(driver, photo_url):
             print(f"📱 'Visit Site' button not found, continuing...")
         
         print(f"📱 Waiting for image to load...")
-        time.sleep(10)
+        await asyncio.sleep(10)  # ASYNC VERSION TO NOT BLOCK WEBSOCKETS
         
         # Find and long press on the image
         print(f"🖼️ Finding image element...")
@@ -360,7 +850,7 @@ def download_photo_via_safari_proven_method(driver, photo_url):
         add_to_photos_button.click()
         
         print(f"✅ Photo saved to iPhone Photos successfully!")
-        time.sleep(5)
+        await asyncio.sleep(5)  # ASYNC VERSION TO NOT BLOCK WEBSOCKETS
         return True
         
     except Exception as e:
@@ -419,9 +909,6 @@ async def execute_scrolling_and_liking(device_id: str, job_id: str, template_dat
         
         # Import not needed - scrolling and liking is now handled in the automation checkpoints
         
-        # Create scrolling automation
-        scroll_automation = ThreadsScrollActions(scroll_type="home_feed")
-        
         # Execute scrolling with liking
         print(f"📱 Executing {scrolling_time_minutes} minutes of scrolling with {likes_per_day} likes...")
         
@@ -469,8 +956,8 @@ async def execute_combined_scroll_and_like(device, scrolling_minutes, target_lik
             # Simulate scrolling and liking
             print(f"📱 Scrolling and looking for posts to like... ({likes_completed}/{target_likes} likes)")
             
-            # Simulate time for scrolling and liking
-            time.sleep(30)  # 30 seconds per like attempt
+            # Simulate time for scrolling and liking - USE ASYNC SLEEP TO NOT BLOCK WEBSOCKETS
+            await asyncio.sleep(30)  # 30 seconds per like attempt - ASYNC VERSION
             likes_completed += 1
             
             # Update progress
@@ -512,8 +999,11 @@ async def execute_real_threads_photo_posts(device_id: str, photo_posts: int, job
         print(f"   Photos folder: {photos_folder}")
         print(f"   Captions file: {captions_file}")
         
-        # Log template summary instead of full data
+        # Log template name and summary
+        template_name = template_data.get('name', 'Unknown Template')
+        template_id = template_data.get('id', 'No ID')
         template_summary = format_template_summary(template_data)
+        print(f"📋 Template: '{template_name}' (ID: {template_id})")
         print(f"   Template summary: {template_summary}")
         print(f"   Has captions file content: {'Yes' if captions_file_content else 'No'}")
         
@@ -577,9 +1067,18 @@ async def execute_real_threads_photo_posts(device_id: str, photo_posts: int, job
             print(f"📝 Using {len(captions_list)} default captions")
         
         # Import the integrated photo service
-        import sys
-        sys.path.append("/Users/jacqubsf/Downloads/Telegram Desktop/FSN-System-Backend-main/FSN-System-Backend-main/api/services")
-        from integrated_photo_service import integrated_photo_service
+        integrated_photo_service = None  # type: ignore
+        try:
+            import sys
+            import os
+            # Add the api/services directory to the path
+            api_services_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "api", "services")
+            if api_services_path not in sys.path:
+                sys.path.append(api_services_path)
+            from integrated_photo_service import integrated_photo_service  # type: ignore
+        except ImportError as e:
+            print(f"⚠️ Warning: Could not import integrated_photo_service: {e}")
+            print("📸 Photo posting will be skipped for this session")
         
         # Import the Threads automation script
         platforms_path = "/Users/jacqubsf/Downloads/Telegram Desktop/FSN-System-Backend-main/FSN-System-Backend-main"
@@ -619,6 +1118,10 @@ async def execute_real_threads_photo_posts(device_id: str, photo_posts: int, job
                     continue
                 
                 # Use integrated photo service to select, clean, and serve photo
+                if integrated_photo_service is None:
+                    print("⚠️ Photo service not available - skipping photo post")
+                    continue
+                    
                 photo_result = await integrated_photo_service.process_photo_post(
                     photos_folder=photos_folder,
                     captions_file=captions_file if captions_file else None,
@@ -672,7 +1175,7 @@ async def execute_real_threads_photo_posts(device_id: str, photo_posts: int, job
                     safari_driver = webdriver.Remote(appium_url, options=safari_options)
                     
                     # Use the proven Safari download method from picture.py
-                    download_success = download_photo_via_safari_proven_method(safari_driver, photo_url)
+                    download_success = await download_photo_via_safari_proven_method(safari_driver, photo_url)
                     
                     if download_success:
                         print(f"✅ Photo downloaded to iPhone Photos successfully!")
@@ -724,6 +1227,12 @@ async def execute_real_threads_photo_posts(device_id: str, photo_posts: int, job
                         
                         print(f"🔥 DIRECT UPDATE - AFTER: status={job_info.get('status')}, progress={job_info.get('progress')}, step={job_info.get('current_step')}")
                         print(f"✅ DIRECT PROGRESS UPDATE: {checkpoint_name} ({actual_progress}%)")
+                        # When post verification completes, increment post counter for the primary account
+                        if checkpoint_name == 'verify_post' and actual_progress >= 62:
+                            try:
+                                increment_account_post_count(device_id=device_id)
+                            except Exception as e:
+                                print(f"⚠️ Could not increment post count: {e}")
                     else:
                         print(f"❌ JOB {job_id} NOT FOUND IN ACTIVE_JOBS for direct update!")
                 
@@ -734,13 +1243,29 @@ async def execute_real_threads_photo_posts(device_id: str, photo_posts: int, job
                 # Get device type and container info
                 device_type = "jailbroken" if device.get("jailbroken", False) else "non_jailbroken"
                 
-                # Get container_number from device settings (temporarily using device data)
+                # Get container_number from account data
                 container_id = None
                 if device_type == "jailbroken":
-                    # For now, use container 3 as specified by user
-                    # TODO: Get this from account data properly
-                    container_id = "3"  # User specified container 3
-                    print(f"🔧 Using container: {container_id} (hardcoded for testing)")
+                    # Get account data to find the correct container
+                    account_data = await get_account_by_device_id(device_id)
+                    if account_data and account_data.get('container_number'):
+                        container_id = str(account_data.get('container_number'))
+                        print(f"🔧 Using container from account: {container_id} (account: {account_data.get('username')})")
+                        
+                        # Send WebSocket notification with username
+                        try:
+                            await broadcast_account_processing(
+                                device_id=device_id,
+                                username=account_data.get('username', 'unknown'),
+                                account_id=str(account_data.get('id', 'unknown')),
+                                current_step="Starting photo post automation",
+                                progress=0
+                            )
+                        except Exception as e:
+                            print(f"❌ Failed to send WebSocket account processing notification: {e}")
+                    else:
+                        container_id = "3"  # Fallback to container 3
+                        print(f"🔧 Using fallback container: {container_id} (no account container found)")
                 
                 print(f"🔧 Device info: Type={device_type}, Container={container_id}")
                 
@@ -757,11 +1282,18 @@ async def execute_real_threads_photo_posts(device_id: str, photo_posts: int, job
                 automation.scrolling_minutes = scrolling_time_minutes
                 automation.likes_target = likes_per_day
                 automation.device_id = device_id
+                # Provide expected username for downstream profile verification
+                try:
+                    if account_data and account_data.get('username'):
+                        automation.expected_username = account_data.get('username')
+                        print(f"🔎 Set expected_username for automation: @{automation.expected_username}")
+                except Exception as e:
+                    print(f"⚠️ Could not set expected_username on automation: {e}")
                 
                 print(f"📱 Executing Threads photo post automation...")
                 
-                # Execute with media enabled
-                success = automation.run_test()
+                # Execute with media enabled - now async to avoid blocking WebSocket
+                success = await automation.run_test()
                 
                 if success:
                     print(f"✅ Photo post {i+1}/{photo_posts} completed successfully!")
@@ -784,7 +1316,8 @@ async def execute_real_threads_photo_posts(device_id: str, photo_posts: int, job
                 
                 # Cleanup photo resources after posting
                 print(f"🧹 Cleaning up photo resources...")
-                await integrated_photo_service._cleanup_device_handlers(device.get('udid', f"device_{device_id}"))
+                if integrated_photo_service is not None:
+                    await integrated_photo_service._cleanup_device_handlers(device.get('udid', f"device_{device_id}"))
                 
                 print(f"✅ Photo post {i+1}/{photo_posts} workflow completed")
                 
@@ -813,7 +1346,8 @@ async def execute_real_threads_photo_posts(device_id: str, photo_posts: int, job
         await execute_scrolling_and_liking(device_id, job_id, template_data)
         
         # Final cleanup
-        await integrated_photo_service.cleanup_all()
+        if integrated_photo_service is not None:
+            await integrated_photo_service.cleanup_all()
         print(f"🧹 Final cleanup completed")
         
     except Exception as e:
@@ -825,8 +1359,135 @@ async def execute_real_threads_photo_posts(device_id: str, photo_posts: int, job
             active_jobs[job_id]["status"] = "error"
             active_jobs[job_id]["message"] = f"Photo posts failed: {str(e)}"
 
+async def start_appium_for_device(device_id: str):
+    """Start Appium server for a specific device if not already running"""
+    global running_appium_processes
+    
+    # Check if Appium is already running for this device
+    if device_id in running_appium_processes:
+        process = running_appium_processes[device_id]
+        # Support None sentinel from idempotent path
+        if process is None:
+            print(f"✅ Appium already running for device {device_id}")
+            return True
+        if hasattr(process, 'poll') and process.poll() is None:  # Process is still running
+            print(f"✅ Appium already running for device {device_id}")
+            return True
+    
+    # Get device info
+    device = None
+    for d in devices:
+        if d.get("id") == device_id:
+            device = d
+            break
+    
+    if not device:
+        print(f"❌ Device {device_id} not found")
+        return False
+    
+    # Check if port is already in use
+    import socket
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    result = sock.connect_ex(('localhost', device.get('appium_port')))
+    sock.close()
+    
+    if result == 0:
+        # If port is already listening, consider Appium running and record it
+        print(f"✅ Appium already running on port {device.get('appium_port')}")
+        running_appium_processes.setdefault(device_id, None)
+        return True
+    
+    try:
+        # Ensure temp directory exists and has proper permissions
+        import tempfile
+        temp_dir = tempfile.gettempdir()
+        os.makedirs(temp_dir, exist_ok=True)
+        print(f"🔧 Using temp directory: {temp_dir}")
+        
+        # Start Appium server for this device (minimal command)
+        appium_cmd = [
+            "appium",
+            "-p", str(device.get('appium_port'))
+        ]
+        
+        print(f"🔧 Starting Appium command: {' '.join(appium_cmd)}")
+        
+        # Start Appium process with proper environment
+        print(f"🔧 Starting Appium process...")
+        
+        # Set environment variables for Appium
+        env = os.environ.copy()
+        env['TMPDIR'] = temp_dir  # Ensure Appium uses the correct temp directory
+        
+        process = subprocess.Popen(
+            appium_cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            env=env,  # Pass the environment with TMPDIR
+            preexec_fn=None if os.name == 'nt' else os.setsid  # Create new process group
+        )
+        
+        # Store the process
+        running_appium_processes[device_id] = process
+        
+        # Wait for Appium to start and check if it's actually running
+        print("⏳ Waiting for Appium to start...")
+        await asyncio.sleep(3)
+        
+        # Check if process is still running
+        if process.poll() is not None:
+            # Process has already exited, get the error
+            stdout, stderr = process.communicate()
+            print(f"❌ Appium failed to start:")
+            print(f"   STDOUT: {stdout}")
+            print(f"   STDERR: {stderr}")
+            return False
+        
+        # Check if port is actually listening
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        result = sock.connect_ex(('localhost', device.get('appium_port')))
+        sock.close()
+        
+        if result != 0:
+            print(f"❌ Appium port {device.get('appium_port')} is not listening")
+            # Try to get any error output
+            try:
+                stdout, stderr = process.communicate(timeout=1)
+                print(f"   STDOUT: {stdout}")
+                print(f"   STDERR: {stderr}")
+            except:
+                pass
+            
+            # Clean up the failed process
+            try:
+                process.terminate()
+                process.wait(timeout=2)
+            except:
+                try:
+                    process.kill()
+                except:
+                    pass
+            
+            # Remove from running processes
+            running_appium_processes.pop(device_id, None)
+            
+            print(f"❌ Appium port {device.get('appium_port')} is not accessible")
+            return False
+        
+        print(f"✅ Appium is running on port {device.get('appium_port')}")
+        return True
+        
+    except Exception as e:
+        print(f"❌ Failed to start Appium: {e}")
+        return False
+
 async def execute_real_threads_posts(device_id: str, text_posts: int, job_id: str, template_data: dict = None):
-    """Execute real Threads posts using Appium automation"""
+    """Execute real Threads posts using Appium automation.
+    If multiple accounts are assigned to the device, iterate over them and optionally loop with interval.
+    """
+    global DEVICE_ACCOUNTS, DEVICE_TEMPLATES
+    
     try:
         # Get device info
         device = None
@@ -839,21 +1500,65 @@ async def execute_real_threads_posts(device_id: str, text_posts: int, job_id: st
             print(f"❌ Device {device_id} not found")
             return
         
-        print(f"🎯 Starting real Threads automation for device {device_id}")
+        # Start Appium for this device if not already running
+        print(f"🔧 Ensuring Appium is running for device {device_id}...")
+        appium_started = await start_appium_for_device(device_id)
+        if not appium_started:
+            print(f"❌ Failed to start Appium for device {device_id}")
+            return
         
+        print(f"🎯 Starting real Threads automation for device {device_id}")
+        # Ensure keep-running scheduler flag is set
+        global DEVICE_KEEP_RUNNING
+        if 'DEVICE_KEEP_RUNNING' not in globals():
+            DEVICE_KEEP_RUNNING = {}
+        DEVICE_KEEP_RUNNING[device_id] = True
+        # Ensure pause flag store exists
+        global DEVICE_PAUSED
+        if 'DEVICE_PAUSED' not in globals():
+            DEVICE_PAUSED = {}
+        DEVICE_PAUSED.setdefault(device_id, False)
+        # Determine assigned accounts for the device
+        assigned_accounts = DEVICE_ACCOUNTS.get(device_id, []) if 'DEVICE_ACCOUNTS' in globals() else []
+        if not assigned_accounts:
+            assigned_accounts = [a for a in load_accounts() if str(a.get('device_id')) == str(device_id)]
+        print(f"👥 Assigned accounts: {len(assigned_accounts)}")
+        
+        # Store accounts and template data globally for account switching
+        DEVICE_ACCOUNTS[device_id] = assigned_accounts
+        DEVICE_TEMPLATES[device_id] = template_data
+        
+        # Ensure daily counters are reset when day changes
+        reset_daily_post_counts_if_new_day()
+
         # Get template settings
         settings = template_data.get("settings", {}) if template_data else {}
         photos_per_day = settings.get("photosPerDay", 0)
         text_posts_file = settings.get("textPostsFile", "")
+        interval_minutes = int(settings.get("accountIntervalMinutes", 0) or 0)
+        posting_interval_minutes = int(settings.get("postingIntervalMinutes", 30) or 30)
+        per_day_limit = int(settings.get("textPostsPerDay", text_posts) or text_posts)
+        run_loop = bool(settings.get("runLoop", False))
+        
+        # Debug: Log what we received from frontend
+        print(f"🔍 DEBUG - Template settings received:")
+        print(f"   textPostsFile: {text_posts_file}")
+        print(f"   textPostsFileContent: {'Present' if settings.get('textPostsFileContent') else 'Missing'}")
+        print(f"   postingIntervalMinutes: {posting_interval_minutes}")
+        print(f"   All settings keys: {list(settings.keys())}")
         
         print(f"📊 Template settings:")
         print(f"   Text posts: {text_posts}")
         print(f"   Photos per day: {photos_per_day}")
         print(f"   Text posts file: {text_posts_file}")
+        print(f"   Posting interval: {posting_interval_minutes} minutes")
         
-        # Log template summary instead of full data
+        # Log template name and summary
+        template_name = template_data.get('name', 'Unknown Template')
+        template_id = template_data.get('id', 'No ID')
         template_summary = format_template_summary(template_data)
         text_posts_file_content = settings.get("textPostsFileContent", "")
+        print(f"📋 Template: '{template_name}' (ID: {template_id})")
         print(f"   Template summary: {template_summary}")
         print(f"   Has text posts file content: {'Yes' if text_posts_file_content else 'No'}")
         
@@ -902,6 +1607,15 @@ async def execute_real_threads_posts(device_id: str, text_posts: int, job_id: st
             print("📝 No text posts file specified - cannot proceed without text posts")
             text_posts_list = []
         
+        # Fallback: Create sample text posts if none available (for testing)
+        if not text_posts_list and text_posts > 0:
+            print("⚠️ No text posts available - creating sample posts for testing")
+            text_posts_list = [
+                f"Sample post {i+1} - This is a test post for automation"
+                for i in range(text_posts)
+            ]
+            print(f"📝 Created {len(text_posts_list)} sample text posts")
+        
         # Import the Threads automation script
         import sys
         import os
@@ -919,115 +1633,321 @@ async def execute_real_threads_posts(device_id: str, text_posts: int, job_id: st
         post_thread_module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(post_thread_module)
         ThreadsPostThreadTest = post_thread_module.ThreadsPostThreadTest
-        
-        # Execute posts with profile scan after each post
-        for i in range(text_posts):
-            print(f"📝 Creating real text post {i+1}/{text_posts}")
-            
-            # Calculate base progress for this post
-            base_progress = (i * 100 // text_posts)
-            print(f"📊 Starting post {i+1}/{text_posts} automation (base progress: {base_progress}%)")
-            
+
+        # Helper to run posting for a single account
+        async def run_for_account(account: dict):
+            """Run automation for a single account - one post per call"""
             try:
-                # Get the text content for this post
-                if not text_posts_list:
-                    print(f"❌ No text posts available - skipping post {i+1}")
-                    continue
-                
-                # Use text from xlsx file, cycling through available posts
-                post_text = text_posts_list[i % len(text_posts_list)]
-                print(f"📝 Post text: {post_text}")
-                
-                # Don't send generic updates - let callbacks handle everything
-                print(f"📝 Starting post {i+1}/{text_posts} - callbacks will send progress updates")
-                
-                # Create progress callback function that sends updates immediately
-                def progress_callback(checkpoint_name, checkpoint_percent):
-                    # For single post, use checkpoint_percent directly
-                    # For multiple posts, distribute across posts
-                    if text_posts == 1:
-                        actual_progress = checkpoint_percent
-                    else:
-                        progress_per_post = 100 // text_posts
-                        actual_progress = base_progress + (checkpoint_percent * progress_per_post // 100)
-                    
-                    actual_progress = min(actual_progress, 100)
-                    print(f"📊 REAL CHECKPOINT UPDATE: {checkpoint_name} ({actual_progress}%) - Post {i+1}/{text_posts}")
-                    
-                    # Update job status directly (no threading, no async)
-                    print(f"🔥 CALLBACK TRIGGERED: {checkpoint_name} ({actual_progress}%)")
-                    
-                    if job_id in active_jobs:
-                        job_info = active_jobs[job_id]
-                        print(f"🔥 DIRECT UPDATE - BEFORE: status={job_info.get('status')}, progress={job_info.get('progress')}, step={job_info.get('current_step')}")
-                        
-                        # Update job info directly
-                        job_info["status"] = "executing"
-                        job_info["current_step"] = checkpoint_name
-                        job_info["progress"] = actual_progress
-                        job_info["message"] = checkpoint_name
-                        
-                        print(f"🔥 DIRECT UPDATE - AFTER: status={job_info.get('status')}, progress={job_info.get('progress')}, step={job_info.get('current_step')}")
-                        print(f"✅ DIRECT PROGRESS UPDATE: {checkpoint_name} ({actual_progress}%)")
-                    else:
-                        print(f"❌ JOB {job_id} NOT FOUND IN ACTIVE_JOBS for direct update!")
-                
-                # Get scrolling settings from template  
-                scrolling_time_minutes = settings.get("scrollingTimeMinutes", 0)
-                likes_per_day = settings.get("likesPerDay", 0)
-                
-                # Get device type and container info
-                device_type = "jailbroken" if device.get("jailbroken", False) else "non_jailbroken"
-                
-                # Get container_number from device settings (temporarily using device data)
-                container_id = None
-                if device_type == "jailbroken":
-                    # For now, use container 3 as specified by user
-                    # TODO: Get this from account data properly
-                    container_id = "3"  # User specified container 3
-                    print(f"🔧 Using container: {container_id} (hardcoded for testing)")
-                
-                print(f"🔧 Device info: Type={device_type}, Container={container_id}")
-                
-                # Create the automation instance with callback and device info
-                automation = ThreadsPostThreadTest(
-                    post_text=post_text, 
-                    photos_per_day=photos_per_day, 
-                    progress_callback=progress_callback,
-                    device_type=device_type,
-                    container_id=container_id
+                # Set current account context so counters map correctly
+                global CURRENT_ACCOUNT
+                if 'CURRENT_ACCOUNT' not in globals():
+                    CURRENT_ACCOUNT = {}
+                CURRENT_ACCOUNT[device_id] = account
+                print(f"👤 Using account @{account.get('username')} container {account.get('container_number')} platform {account.get('platform')}")
+
+                # Send WebSocket notification with username
+                try:
+                    await broadcast_account_processing(
+                        device_id=device_id,
+                        username=account.get('username', 'unknown'),
+                        account_id=str(account.get('id', 'unknown')),
+                        current_step="Starting text post automation",
+                        progress=0
+                    )
+                except Exception as e:
+                    print(f"⚠️ Failed to broadcast account processing: {e}")
+
+                # Enforce daily post limit from template per account
+                current_today = get_posts_today_for_account(
+                    account_id=str(account.get('id','')),
+                    username=account.get('username'),
+                    device_id=device_id
                 )
+                if current_today >= per_day_limit:
+                    print(f"⏭️ @{account.get('username')} reached daily limit ({current_today}/{per_day_limit}) - skipping")
+                    return False
+
+                # Execute only ONE post per account per call
+                if text_posts > 0:
+                    print(f"📝 Creating 1 text post for account @{account.get('username')}")
+                    
+                    # Get the text content for this post
+                    if not text_posts_list:
+                        print(f"❌ No text posts available - skipping")
+                        return False
+                    
+                    # Use text from xlsx file, cycling through available posts
+                    # Use a simple counter to cycle through posts
+                    post_index = 0  # For now, use first post - can be improved later
+                    post_text = text_posts_list[post_index]
+                    print(f"📝 Post text: {post_text}")
+                    
+                    # Create progress callback function
+                    def progress_callback(checkpoint_name, checkpoint_percent):
+                        actual_progress = min(checkpoint_percent, 100)
+                        print(f"📊 CHECKPOINT: {checkpoint_name} ({actual_progress}%)")
+                        
+                        # Update job status
+                        if job_id in active_jobs:
+                            job_info = active_jobs[job_id]
+                            job_info["status"] = "executing"
+                            job_info["current_step"] = checkpoint_name
+                            job_info["progress"] = actual_progress
+                            job_info["message"] = checkpoint_name
+                        
+                        # Send WebSocket update with username
+                        try:
+                            import asyncio
+                            try:
+                                loop = asyncio.get_running_loop()
+                                asyncio.create_task(broadcast_account_processing(
+                                    device_id=device_id,
+                                    username=account.get('username', 'unknown'),
+                                    account_id=str(account.get('id', 'unknown')),
+                                    current_step=checkpoint_name,
+                                    progress=actual_progress
+                                ))
+                            except RuntimeError:
+                                # No running loop - skip broadcast
+                                pass
+                        except Exception as e:
+                            print(f"⚠️ Failed to schedule WebSocket broadcast: {e}")
+                    
+                    # Get scrolling settings from template  
+                    scrolling_time_minutes = settings.get("scrollingTimeMinutes", 0)
+                    likes_per_day = settings.get("likesPerDay", 0)
+                    
+                    # Get device type and container info
+                    device_type = "jailbroken" if device.get("jailbroken", False) else "non_jailbroken"
                 
-                # Set scrolling parameters on the automation instance
-                automation.scrolling_minutes = scrolling_time_minutes
-                automation.likes_target = likes_per_day
-                automation.device_id = device_id
+                    # Get container_number from current account selection
+                    container_id = None
+                    if device_type == "jailbroken":
+                        account_data = CURRENT_ACCOUNT.get(device_id) if 'CURRENT_ACCOUNT' in globals() else None
+                        if account_data and account_data.get('container_number'):
+                            container_id = str(account_data.get('container_number'))
+                            print(f"🔧 Using container from account: {container_id} (account: {account_data.get('username')})")
+                        else:
+                            container_id = "3"  # Fallback to container 3
+                            print(f"🔧 Using fallback container: {container_id} (no account container found)")
+                    
+                    print(f"🔧 Device info: Type={device_type}, Container={container_id}")
+                    
+                    # Create the automation instance with callback and device info
+                    automation = ThreadsPostThreadTest(
+                        post_text=post_text, 
+                        photos_per_day=0,  # No photos for text posts
+                        progress_callback=progress_callback,
+                        device_type=device_type,
+                        container_id=container_id
+                    )
+                    
+                    # Set scrolling parameters on the automation instance
+                    automation.scrolling_minutes = scrolling_time_minutes
+                    automation.likes_target = likes_per_day
+                    # Provide expected username for downstream profile verification
+                    try:
+                        if account_data and account_data.get('username'):
+                            automation.expected_username = account_data.get('username')
+                            print(f"🔎 Set expected_username for automation: @{automation.expected_username}")
+                    except Exception as e:
+                        print(f"⚠️ Could not set expected_username on automation: {e}")
+                    automation.device_id = device_id
+                    
+                    # Run the automation
+                    success = await automation.run_test()
+                    
+                    print(f"🏁 Post automation finished: {'✅ Success' if success else '❌ Failed'}")
+                    
+                    if success:
+                        print(f"✅ Post created successfully")
+                        # Increment post count for this account
+                        try:
+                            increment_account_post_count(device_id=device_id, username_hint=account.get('username'))
+                        except Exception as e:
+                            print(f"⚠️ Could not increment post count: {e}")
+                        return True
+                    else:
+                        print(f"❌ Failed to create post")
+                        return False
+                else:
+                    print(f"⚠️ No text posts to execute for this account")
+                    return False
+                    
+            except Exception as e:
+                print(f"❌ Error in run_for_account: {e}")
+                return False
+
+        async def run_all_accounts_once():
+            """Run all accounts once with proper cooldown management"""
+            nonlocal posting_interval_minutes  # Access the outer scope variable
+            global LAST_ACCOUNT_SESSIONS
+            
+            if 'LAST_ACCOUNT_SESSIONS' not in globals():
+                LAST_ACCOUNT_SESSIONS = {}
+            
+            # First, check if there are any warmup accounts that need to be completed
+            warmup_accounts = []
+            for acc in assigned_accounts:
+                account_id = str(acc.get('id', ''))
+                warmup_data = get_warmup_account_data(account_id)
+                if warmup_data and warmup_data.get('account_phase') == 'warmup' and not warmup_data.get('warmup_completed_today', False):
+                    warmup_accounts.append(acc)
+            
+            # If there are warmup accounts that haven't completed today, run warmup first
+            if warmup_accounts:
+                print(f"🔥 Found {len(warmup_accounts)} accounts needing warmup - running warmup first")
+                await broadcast_device_status_update(device_id, "running", "Running warmup automation")
                 
-                # Run the automation with callback
-                success = automation.run_test()
+                # Get warmup template data for the first warmup account
+                first_warmup_account = warmup_accounts[0]
+                warmup_account_id = str(first_warmup_account.get('id', ''))
+                warmup_data = get_warmup_account_data(warmup_account_id)
+                warmup_template_id = warmup_data.get('warmup_template_id') if warmup_data else None
                 
-                # Don't send generic completion updates - let the callbacks handle it
-                print(f"🏁 Post {i+1} automation finished: {'✅ Success' if success else '❌ Failed'}")
+                # Create default warmup template data if not available
+                warmup_template_data = {
+                    "id": warmup_template_id or "default",
+                    "name": "Default Warmup Template",
+                    "total_days": 1,
+                    "days_config": [
+                        {
+                            "day_number": 1,
+                            "scroll_minutes": 10,
+                            "likes_count": 5,
+                            "follows_count": 2
+                        }
+                    ]
+                }
+                
+                for acc in warmup_accounts:
+                    username = acc.get('username', 'unknown')
+                    print(f"🔥 Running warmup for account @{username}")
+                    await execute_warmup_for_account(device, acc, warmup_template_data, f"warmup_{acc.get('id')}")
+                print(f"🔥 Warmup completed for all accounts - now proceeding with posting")
+                return 0, True  # Return that we ran something (warmup)
+            
+            count = 0
+            ran_any = False
+            
+            for acc in assigned_accounts:
+                username = acc.get('username', 'unknown')
+                account_id = str(acc.get('id', ''))
+                
+                # Check if account is in cooldown
+                if account_id in LAST_ACCOUNT_SESSIONS:
+                    last_post_time = LAST_ACCOUNT_SESSIONS[account_id]
+                    elapsed_minutes = (time.time() - last_post_time) / 60
+                    
+                    if elapsed_minutes < posting_interval_minutes:
+                        wait_left = posting_interval_minutes - elapsed_minutes
+                        print(f"⏳ Skipping account @{username} - cooldown {wait_left:.1f} min remaining")
+                        continue
+                
+                # Run this account
+                print(f"🚀 Running account @{username}")
+                success = await run_for_account(acc)
                 
                 if success:
-                    print(f"✅ Post {i+1} created successfully with profile tracking")
+                    count += 1
+                    ran_any = True
+                    print(f"✅ Account @{username} completed session successfully")
+                    
+                    # Update session tracking
+                    LAST_ACCOUNT_SESSIONS[account_id] = time.time()
+                    
+                    # Save session data
+                    try:
+                        save_session_data()
+                    except Exception as e:
+                        print(f"⚠️ Failed to save session data: {e}")
+                    
+                    # Broadcast account status update
+                    try:
+                        await broadcast_account_status_update(device_id)
+                    except Exception as e:
+                        print(f"⚠️ Failed to broadcast account status update: {e}")
                 else:
-                    print(f"❌ Failed to create post {i+1}")
-                
-            except Exception as e:
-                print(f"❌ Failed to create post {i+1}: {e}")
-                # Continue with next post even if one fails
-                continue
+                    print(f"❌ Account @{username} session failed")
             
-            # Small delay between posts
-            if i < text_posts - 1:
+            return count, ran_any
+
+        async def calculate_next_ready_time():
+            """Calculate when the next account will be ready"""
+            if 'LAST_ACCOUNT_SESSIONS' not in globals():
+                return 0
+            
+            next_ready_time = float('inf')  # Start with infinity
+            current_time = time.time()
+            
+            for acc in assigned_accounts:
+                account_id = str(acc.get('id', ''))
+                if account_id in LAST_ACCOUNT_SESSIONS:
+                    last_post_time = LAST_ACCOUNT_SESSIONS[account_id]
+                    ready_time = last_post_time + (posting_interval_minutes * 60)
+                    
+                    # Only consider accounts that are still in cooldown
+                    if ready_time > current_time:
+                        next_ready_time = min(next_ready_time, ready_time)
+            
+            # If no accounts are in cooldown, return current time
+            return next_ready_time if next_ready_time != float('inf') else current_time
+
+        # Main loop control - persistent scheduler: run forever until stopped
+        print("🔄 Starting persistent scheduler loop...")
+        total_posts_completed = 0
+        attempt = 0
+        
+        while DEVICE_KEEP_RUNNING.get(device_id, True):
+            # Respect pause flag
+            if DEVICE_PAUSED.get(device_id):
+                await broadcast_device_status_update(device_id, "paused", "Device paused")
+                try:
+                    await broadcast_account_status_update(device_id)
+                except Exception:
+                    pass
                 await asyncio.sleep(2)
+                continue
+            attempt += 1
+            print(f"🔄 Loop attempt {attempt} - Posts completed so far: {total_posts_completed}")
+            
+            posts_this_round, ran_any = await run_all_accounts_once()
+            total_posts_completed += posts_this_round
+            
+            if not ran_any:
+                # Calculate when next account will be ready
+                next_ready_time = await calculate_next_ready_time()
+                current_time = time.time()
+                
+                if next_ready_time > current_time:
+                    wait_seconds = next_ready_time - current_time
+                    wait_minutes = wait_seconds / 60
+                    
+                    print(f"⏳ All accounts in cooldown - waiting {wait_minutes:.1f} minutes until next account is ready")
+                    print(f"🕐 Next account ready at: {datetime.fromtimestamp(next_ready_time).strftime('%H:%M:%S')}")
+                    
+                    # Wait for the next account to be ready, but check every 30 seconds
+                    # to see if any other accounts become ready earlier
+                    while time.time() < next_ready_time:
+                        # Check if any accounts are ready now
+                        posts_this_check, ran_any = await run_all_accounts_once()
+                        if ran_any:
+                            total_posts_completed += posts_this_check
+                            print(f"📊 Found ready account! Completed {posts_this_check} posts, {total_posts_completed}/{text_posts} total")
+                            break
+                        
+                        # Wait 30 seconds before checking again
+                        remaining_time = next_ready_time - time.time()
+                        wait_time = min(30, remaining_time)
+                        if wait_time > 0:
+                            await asyncio.sleep(wait_time)
+                else:
+                    print(f"⏳ All accounts in cooldown - waiting 30 seconds before next check")
+                    await asyncio.sleep(30)
+            else:
+                print(f"📊 Completed {posts_this_round} posts this round, {total_posts_completed}/{text_posts} total")
         
-        print(f"✅ Completed {text_posts} real Threads posts")
-        
-        # Execute scrolling and liking after text posts (once per day)
-        print(f"🔄 Starting scrolling and liking after text posts...")
-        await execute_scrolling_and_liking(device_id, job_id, template_data)
+        print(f"🏁 Scheduler stopped for device {device_id} - total posts this run: {total_posts_completed}")
         
     except Exception as e:
         print(f"❌ Error in real Threads automation: {e}")
@@ -1057,9 +1977,19 @@ async def execute_profile_scan_for_tracking(device_id: str, job_id: str):
         spec.loader.exec_module(scan_profile_module)
         ThreadsScanProfileTest = scan_profile_module.ThreadsScanProfileTest
         
+        # Determine expected username from active account for this device
+        expected_username = None
+        try:
+            account = await get_account_by_device_id(device_id)
+            if account and account.get('username'):
+                expected_username = account.get('username')
+                print(f"🔎 Using expected_username for profile scan: @{expected_username}")
+        except Exception as e:
+            print(f"⚠️ Could not determine expected_username for profile scan: {e}")
+
         # Execute profile scan
         print("📊 Running profile scan...")
-        scanner = ThreadsScanProfileTest()
+        scanner = ThreadsScanProfileTest(expected_username=expected_username)
         success = scanner.run_test()
         
         if success and hasattr(scanner, 'profile_data'):
@@ -1111,6 +2041,300 @@ async def save_follower_tracking_data(profile_stats: dict):
         
     except Exception as e:
         print(f"❌ Failed to save tracking data: {e}")
+
+
+async def execute_warmup_session(device_id: str, warmup_template_data: dict, job_id: str):
+    """Execute warmup session for engagement activities (scroll, like, follow) without posting"""
+    try:
+        print(f"🔥 Starting warmup session for device {device_id}")
+        
+        # Get device info
+        device = None
+        for d in devices:
+            if d.get("id") == device_id:
+                device = d
+                break
+        
+        if not device:
+            print(f"❌ Device {device_id} not found")
+            return
+        
+        # Start Appium for this device if not already running
+        print(f"🔧 Ensuring Appium is running for device {device_id}...")
+        appium_started = await start_appium_for_device(device_id)
+        if not appium_started:
+            print(f"❌ Failed to start Appium for device {device_id}")
+            return
+        
+        # Get warmup template settings
+        settings = warmup_template_data.get("settings", {}) if warmup_template_data else {}
+        total_days = warmup_template_data.get("total_days", 1)
+        days_config = warmup_template_data.get("days_config", [])
+        
+        # Log template information
+        template_name = warmup_template_data.get('name', 'Unknown Warmup Template')
+        template_id = warmup_template_data.get('id', 'No ID')
+        print(f"📋 Warmup Template: '{template_name}' (ID: {template_id})")
+        print(f"   Total days: {total_days}")
+        print(f"   Days config: {len(days_config)} days configured")
+        
+        # Get accounts assigned to this device
+        assigned_accounts = [a for a in load_accounts() if str(a.get('device_id')) == str(device_id)]
+        if not assigned_accounts:
+            print(f"❌ No accounts assigned to device {device_id}")
+            return
+        
+        print(f"👥 Found {len(assigned_accounts)} accounts assigned to device")
+        
+        # Filter accounts that are in warmup phase
+        warmup_accounts = []
+        for acc in assigned_accounts:
+            account_id = str(acc.get('id', ''))
+            warmup_data = get_warmup_account_data(account_id)
+            if warmup_data and warmup_data.get('account_phase') == 'warmup':
+                warmup_accounts.append(acc)
+        
+        if not warmup_accounts:
+            print(f"⚠️ No accounts in warmup phase for device {device_id}")
+            return
+        
+        print(f"🔥 Found {len(warmup_accounts)} accounts in warmup phase")
+        
+        # Execute warmup for each account
+        for acc in warmup_accounts:
+            await execute_warmup_for_account(device, acc, warmup_template_data, job_id)
+            
+    except Exception as e:
+        print(f"❌ Error in warmup session: {e}")
+        raise
+
+
+async def execute_warmup_for_account(device: dict, account: dict, warmup_template_data: dict, job_id: str):
+    """Execute warmup activities for a single account"""
+    try:
+        username = account.get('username', 'unknown')
+        account_id = str(account.get('id', ''))
+        
+        print(f"🔥 Starting warmup for account @{username}")
+        
+        # Check if warmup already completed today
+        warmup_data = get_warmup_account_data(account_id)
+        if warmup_data and warmup_data.get('warmup_completed_today'):
+            print(f"⏭️ Account @{username} already completed warmup today - skipping")
+            return
+        
+        # Get current day and settings
+        current_day = warmup_data.get('current_day', 1) if warmup_data else 1
+        days_config = warmup_template_data.get('days_config', [])
+        
+        # Find day configuration
+        day_config = None
+        for day in days_config:
+            if day.get('day_number') == current_day:
+                day_config = day
+                break
+        
+        if not day_config:
+            print(f"⚠️ No configuration found for day {current_day} - using defaults")
+            day_config = {
+                'scroll_minutes': 10,
+                'likes_count': 5,
+                'follows_count': 2
+            }
+        
+        print(f"📅 Executing Day {current_day} warmup:")
+        print(f"   Scroll: {day_config.get('scroll_minutes', 0)} minutes")
+        print(f"   Likes: {day_config.get('likes_count', 0)}")
+        print(f"   Follows: {day_config.get('follows_count', 0)}")
+        print(f"🎯 Warmup will take approximately {day_config.get('scroll_minutes', 0)} minutes for scrolling")
+        
+        # Import and execute warmup test
+        import sys
+        import os
+        
+        # Add the platforms directory to Python path
+        platforms_path = "/Users/jacqubsf/Downloads/Telegram Desktop/FSN-System-Backend-main/FSN-System-Backend-main"
+        sys.path.append(platforms_path)
+        
+        # Import the warmup test
+        import importlib.util
+        spec = importlib.util.spec_from_file_location(
+            "warmup_test", 
+            f"{platforms_path}/platforms/threads/working_tests/warmup_engagement_test.py"
+        )
+        warmup_module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(warmup_module)
+        ThreadsWarmupTest = warmup_module.ThreadsWarmupTest
+        
+        # Switch to correct container for jailbroken devices (EXACT SAME AS POSTING)
+        if device.get("jailbroken", False):
+            print(f"🔄 Switching to Crane container for warmup on device {device.get('id')}")
+            account_info = {
+                "platform": "threads",
+                "username": username,
+                "container_number": str(account.get("container_number", "1"))
+            }
+            await execute_crane_container_switch(device.get('id'), f"warmup_{account_id}", account_info)
+        
+        # Execute warmup activities
+        print(f"🎯 Running warmup activities for @{username}...")
+        warmup_test = ThreadsWarmupTest(
+            scroll_minutes=day_config.get('scroll_minutes', 0),
+            likes_count=day_config.get('likes_count', 0),
+            follows_count=day_config.get('follows_count', 0),
+            expected_username=username,
+            device_type=device.get("jailbroken", False) and "jailbroken" or "non-jailbroken",
+            container_id=account.get("container_number")
+        )
+        
+        result = await warmup_test.run_full_test()
+        
+        if result.get('success'):
+            print(f"✅ Warmup completed successfully for @{username}")
+            
+            # Update warmup tracking
+            update_warmup_progress(account_id, current_day, day_config)
+            
+            # Update next day
+            next_day = current_day + 1
+            total_days = warmup_template_data.get('total_days', 1)
+            if next_day > total_days:
+                print(f"🎉 Warmup sequence completed for @{username}!")
+                next_day = 1  # Reset to day 1 for next cycle
+            
+            set_warmup_next_day(account_id, next_day)
+            
+        else:
+            print(f"❌ Warmup failed for @{username}: {result.get('error', 'Unknown error')}")
+            
+    except Exception as e:
+        print(f"❌ Error in warmup for account @{username}: {e}")
+        raise
+
+
+def get_warmup_account_data(account_id: str, license_key: str = "dev") -> dict:
+    """Get warmup tracking data for an account.
+    Reads license-specific file first (accounts_warmup_tracking_license_dev.json),
+    falls back to local file (accounts_warmup_tracking_local_dev.json)."""
+    try:
+        import json
+        import os
+
+        base_dir = os.path.dirname(__file__)
+        license_file = os.path.join(base_dir, "accounts_warmup_tracking_license_dev.json")
+        local_file = os.path.join(base_dir, "accounts_warmup_tracking_local_dev.json")
+
+        selected_file = license_file if os.path.exists(license_file) else local_file
+        if not os.path.exists(selected_file):
+            return {}
+
+        with open(selected_file, 'r') as f:
+            data = json.load(f)
+
+        license_key = f"license_{license_key}"
+        if license_key not in data:
+            return {}
+
+        return data[license_key].get(f"account_{account_id}", {})
+
+    except Exception as e:
+        print(f"⚠️ Error reading warmup data: {e}")
+        return {}
+
+
+def update_warmup_progress(account_id: str, day: int, day_config: dict, license_key: str = "dev"):
+    """Update warmup progress for an account"""
+    try:
+        import json
+        import os
+        from datetime import datetime
+        
+        base_dir = os.path.dirname(__file__)
+        license_file = os.path.join(base_dir, "accounts_warmup_tracking_license_dev.json")
+        local_file = os.path.join(base_dir, "accounts_warmup_tracking_local_dev.json")
+        # Prefer license-specific file if it exists; otherwise write to local
+        warmup_file = license_file if os.path.exists(license_file) else local_file
+        
+        # Load existing data
+        data = {}
+        if os.path.exists(warmup_file):
+            with open(warmup_file, 'r') as f:
+                data = json.load(f)
+        
+        # Initialize license structure
+        license_key = f"license_{license_key}"
+        if license_key not in data:
+            data[license_key] = {}
+        
+        account_key = f"account_{account_id}"
+        if account_key not in data[license_key]:
+            data[license_key][account_key] = {
+                "warmup_completed_today": False,
+                "current_day": 1,
+                "last_warmup_date": None,
+                "warmup_stats": {},
+                "next_warmup_day": 1,
+                "warmup_template_id": None,
+                "account_phase": "posting"
+            }
+        
+        # Update warmup stats
+        day_key = f"day_{day}"
+        data[license_key][account_key]["warmup_stats"][day_key] = {
+            "likes": day_config.get('likes_count', 0),
+            "follows": day_config.get('follows_count', 0),
+            "scroll_minutes": day_config.get('scroll_minutes', 0),
+            "completed_at": datetime.now().isoformat()
+        }
+        
+        # Update completion status
+        data[license_key][account_key]["warmup_completed_today"] = True
+        data[license_key][account_key]["last_warmup_date"] = datetime.now().isoformat()
+        data[license_key][account_key]["current_day"] = day
+        
+        # Save updated data
+        with open(warmup_file, 'w') as f:
+            json.dump(data, f, indent=2)
+        
+        print(f"💾 Updated warmup progress for account {account_id}, day {day}")
+        
+    except Exception as e:
+        print(f"⚠️ Error updating warmup progress: {e}")
+
+
+def set_warmup_next_day(account_id: str, next_day: int, license_key: str = "dev"):
+    """Set the next warmup day for an account"""
+    try:
+        import json
+        import os
+        
+        base_dir = os.path.dirname(__file__)
+        license_file = os.path.join(base_dir, "accounts_warmup_tracking_license_dev.json")
+        local_file = os.path.join(base_dir, "accounts_warmup_tracking_local_dev.json")
+        warmup_file = license_file if os.path.exists(license_file) else local_file
+        
+        # Load existing data
+        data = {}
+        if os.path.exists(warmup_file):
+            with open(warmup_file, 'r') as f:
+                data = json.load(f)
+        
+        # Update next warmup day
+        license_key = f"license_{license_key}"
+        account_key = f"account_{account_id}"
+        
+        if license_key in data and account_key in data[license_key]:
+            data[license_key][account_key]["next_warmup_day"] = next_day
+            
+            # Save updated data
+            with open(warmup_file, 'w') as f:
+                json.dump(data, f, indent=2)
+            
+            print(f"📅 Set next warmup day to {next_day} for account {account_id}")
+        
+    except Exception as e:
+        print(f"⚠️ Error setting next warmup day: {e}")
+
 
 async def update_job_status(job_id: str, status: str, step: str, progress: int):
     """Update job status and send WebSocket update"""
@@ -1172,10 +2396,15 @@ async def broadcast_job_update(job_id: str, update_data: dict):
     
     # Send to all connected WebSockets
     disconnected = set()
-    for websocket in active_websocket_connections:
+    for websocket in active_websocket_connections.copy():  # Use copy to avoid modification during iteration
         try:
-            await websocket.send_text(json.dumps(message))
-            print(f"✅ Sent WebSocket message to connection")
+            # Check if WebSocket is still connected before sending
+            if websocket.client_state.name == "CONNECTED":
+                await websocket.send_text(json.dumps(message))
+                print(f"✅ Sent WebSocket message to connection")
+            else:
+                print(f"⚠️ WebSocket is disconnected, removing from active connections")
+                disconnected.add(websocket)
         except Exception as e:
             print(f"❌ Failed to send WebSocket message: {e}")
             disconnected.add(websocket)
@@ -1214,9 +2443,13 @@ async def broadcast_device_status_update(device_id: str, status: str, message: s
     
     # Send to all connected WebSockets
     disconnected = set()
-    for websocket in active_websocket_connections:
+    for websocket in active_websocket_connections.copy():  # Use copy to avoid modification during iteration
         try:
-            await websocket.send_text(json.dumps(device_update))
+            # Check if WebSocket is still connected before sending
+            if websocket.client_state.name == "CONNECTED":
+                await websocket.send_text(json.dumps(device_update))
+            else:
+                disconnected.add(websocket)
         except Exception as e:
             print(f"⚠️ Failed to send device status update: {e}")
             disconnected.add(websocket)
@@ -1224,6 +2457,148 @@ async def broadcast_device_status_update(device_id: str, status: str, message: s
     # Remove disconnected connections
     for websocket in disconnected:
         active_websocket_connections.discard(websocket)
+
+async def broadcast_account_processing(device_id: str, username: str, account_id: str, current_step: str, progress: int = 0):
+    """Broadcast account processing update to all WebSocket connections"""
+    print(f"📡 BROADCASTING ACCOUNT PROCESSING: device={device_id}, username={username}, step={current_step}")
+    
+    message = {
+        "type": "job_update",
+        "data": {
+            "device_id": device_id,
+            "username": username,
+            "account_id": account_id,
+            "current_step": current_step,
+            "progress": progress,
+            "timestamp": datetime.now().isoformat()
+        },
+        "timestamp": datetime.now().isoformat()
+    }
+    
+    print(f"📡 WebSocket message: {json.dumps(message, indent=2)}")
+    print(f"🔌 Active WebSocket connections: {len(active_websocket_connections)}")
+    
+    # Send to all connected WebSockets
+    disconnected = set()
+    for websocket in active_websocket_connections.copy():  # Use copy to avoid modification during iteration
+        try:
+            # Check if WebSocket is still connected before sending
+            if websocket.client_state.name == "CONNECTED":
+                await websocket.send_text(json.dumps(message))
+                print(f"✅ Sent account processing WebSocket message to connection")
+            else:
+                disconnected.add(websocket)
+        except Exception as e:
+            print(f"❌ Failed to send account processing WebSocket message: {e}")
+            disconnected.add(websocket)
+    
+    # Remove disconnected connections
+    for websocket in disconnected:
+        active_websocket_connections.discard(websocket)
+
+async def broadcast_account_status_update(device_id: str):
+    """Broadcast account status update to all connected WebSocket clients"""
+    global active_websocket_connections
+    try:
+        # Get the latest account status
+        assigned_accounts = DEVICE_ACCOUNTS.get(device_id, []) if 'DEVICE_ACCOUNTS' in globals() else []
+        
+        if not assigned_accounts:
+            return
+        
+        # Get posting interval from template
+        posting_interval_minutes = 30  # Default
+        if 'DEVICE_TEMPLATES' in globals() and DEVICE_TEMPLATES.get(device_id):
+            template_data = DEVICE_TEMPLATES[device_id]
+            settings = template_data.get('settings', {})
+            posting_interval_minutes = int(settings.get('postingIntervalMinutes', 30) or 30)
+        
+        # Get daily target from template
+        daily_target = 0
+        try:
+            if 'DEVICE_TEMPLATES' in globals() and DEVICE_TEMPLATES.get(device_id):
+                template_data = DEVICE_TEMPLATES[device_id]
+                settings = template_data.get('settings', {})
+                daily_target = int(settings.get('textPostsPerDay', 0) or 0)
+        except Exception as e:
+            print(f"⚠️ Failed to get daily target for device {device_id}: {e}")
+            daily_target = 2  # Default fallback
+        
+        items = []
+        for acc in assigned_accounts:
+            account_id = str(acc.get('id', ''))
+            username = acc.get('username', 'unknown')
+            
+            # Get post counts
+            posts_total = 0
+            posts_today = 0
+            last_post_at = None
+            
+            try:
+                # Load post tracking data
+                tracking_data = load_account_post_tracking()
+                for item in tracking_data:
+                    if item.get('username') == username:
+                        posts_total = item.get('posts_total', 0)
+                        posts_today = item.get('posts_today', 0)
+                        last_post_at = item.get('last_post_at')
+                        break
+            except Exception as e:
+                print(f"⚠️ Failed to load post tracking for {username}: {e}")
+            
+            # Determine status: completed for today, cooldown, or ready
+            status = "ready"
+            remaining_minutes = 0
+            
+            if account_id in LAST_ACCOUNT_SESSIONS:
+                last_post_time = LAST_ACCOUNT_SESSIONS[account_id]
+                elapsed_minutes = (time.time() - last_post_time) / 60
+                
+                if elapsed_minutes < posting_interval_minutes:
+                    status = "cooldown"
+                    remaining_minutes = posting_interval_minutes - elapsed_minutes
+
+            # Completed for today if reached daily target
+            try:
+                if daily_target and posts_today >= daily_target:
+                    status = "completed"
+            except Exception:
+                pass
+            
+            items.append({
+                "id": account_id,
+                "username": username,
+                "posts_total": posts_total,
+                "posts_today": posts_today,
+                "daily_target": daily_target,
+                "last_post_at": last_post_at,
+                "status": status,
+                "remaining_minutes": remaining_minutes
+            })
+        
+        message_data = {
+            "type": "account_status_update",
+            "device_id": device_id,
+            "accounts": items,
+            "posting_interval_minutes": posting_interval_minutes,
+            "timestamp": datetime.now().isoformat()
+        }
+        
+        # Send to all connected clients
+        if active_websocket_connections:
+            disconnected = set()
+            for websocket in active_websocket_connections.copy():
+                try:
+                    if websocket.client_state.name == "CONNECTED":
+                        await websocket.send_text(json.dumps(message_data))
+                except Exception:
+                    disconnected.add(websocket)
+            
+            # Remove disconnected clients
+            active_websocket_connections -= disconnected
+            
+    except Exception as e:
+        print(f"❌ Error broadcasting account status update: {e}")
 
 # -------------------------------
 # License management configuration
@@ -1518,15 +2893,70 @@ async def start_device(device_id: str, request: Optional[StartDeviceRequest] = N
     if not validation.get("valid", False):
         raise HTTPException(status_code=403, detail={"message": "License invalid or expired", "details": validation})
 
+    # Load license-aware accounts and filter for this device
+    accounts_for_device = []
+    try:
+        all_accounts = load_accounts()
+        accounts_for_device = [
+            {
+                "id": str(a.get("id")),
+                "device_id": str(a.get("device_id")),
+                "username": str(a.get("username")),
+                "container_number": str(a.get("container_number")),
+                "platform": (a.get("platform") or "threads")
+            }
+            for a in (all_accounts or [])
+            if str(a.get("device_id")) == str(device_id)
+        ]
+        print(f"👤 Accounts for device {device_id}: {len(accounts_for_device)} found")
+        for acc in accounts_for_device:
+            print(f"   - {acc['platform']} | @{acc['username']} | container {acc['container_number']}")
+    except Exception as e:
+        print(f"⚠️ Failed to load accounts for device {device_id}: {e}")
+
+    # Persist selection for later automation steps
+    try:
+        global DEVICE_ACCOUNTS
+    except NameError:
+        DEVICE_ACCOUNTS = {}
+    DEVICE_ACCOUNTS[device_id] = accounts_for_device
+    
+    # Check account phases and decide whether to run warmup or posting
+    warmup_accounts = []
+    posting_accounts = []
+    
+    for account in accounts_for_device:
+        account_phase = get_account_phase(account['id'])
+        if account_phase == 'warmup':
+            warmup_accounts.append(account)
+        else:
+            posting_accounts.append(account)
+    
+    print(f"📊 Account phases for device {device_id}:")
+    print(f"   🔥 Warmup accounts: {len(warmup_accounts)}")
+    for acc in warmup_accounts:
+        print(f"      - @{acc['username']} (ID: {acc['id']})")
+    print(f"   📝 Posting accounts: {len(posting_accounts)}")
+    for acc in posting_accounts:
+        print(f"      - @{acc['username']} (ID: {acc['id']})")
+
     print(f"🚀 Starting device: {device.get('name')}")
     print(f"   Platform: {device.get('platform')}")
     print(f"   UDID: {device.get('udid')}")
     print(f"   Appium Port: {device.get('appium_port')}")
+
+    # Immediately broadcast device status to flip UI to running
+    try:
+        import asyncio as _asyncio
+        _asyncio.create_task(broadcast_device_status_update(device_id, "running", "Device start requested"))
+    except Exception as e:
+        print(f"⚠️ Failed to broadcast initial device running status: {e}")
     
     # Check if Appium is already running for this device
     if device_id in running_appium_processes:
         process = running_appium_processes[device_id]
-        if process.poll() is None:  # Process is still running
+        # Support None sentinel from idempotent warmup start
+        if process is None or (hasattr(process, 'poll') and process.poll() is None):
             print(f"✅ Appium already running for {device.get('name')}")
             return {"status": "already_running", "device_id": device_id}
     
@@ -1537,22 +2967,10 @@ async def start_device(device_id: str, request: Optional[StartDeviceRequest] = N
     sock.close()
     
     if result == 0:
-        print(f"❌ Port {device.get('appium_port')} is already in use")
-        # Try to kill any process using the port
-        try:
-            result = subprocess.run(['lsof', '-ti', f':{device.get("appium_port")}'], 
-                                  capture_output=True, text=True)
-            if result.returncode == 0 and result.stdout.strip():
-                pids = result.stdout.strip().split('\n')
-                for pid in pids:
-                    if pid.strip():
-                        subprocess.run(['kill', '-9', pid.strip()], check=False)
-                        print(f"🔧 Killed process {pid.strip()} using port {device.get('appium_port')}")
-        except Exception as e:
-            print(f"⚠️ Could not kill process using port: {e}")
-        
-        # Wait a moment for port to be released
-        time.sleep(2)
+        # Port listening: record sentinel and short-circuit
+        print(f"✅ Appium already listening on port {device.get('appium_port')}")
+        running_appium_processes.setdefault(device_id, None)
+        return {"status": "already_running", "device_id": device_id}
     
     try:
         # Ensure temp directory exists and has proper permissions
@@ -1561,15 +2979,10 @@ async def start_device(device_id: str, request: Optional[StartDeviceRequest] = N
         os.makedirs(temp_dir, exist_ok=True)
         print(f"🔧 Using temp directory: {temp_dir}")
         
-        # Start Appium server for this device
+        # Start Appium server for this device (minimal command)
         appium_cmd = [
             "appium",
-            "server",
-            "--port", str(device.get('appium_port')),
-            "--driver-xcuitest-webdriveragent-port", str(device.get('wda_port')),
-            "--session-override",
-            "--log-level", "info",
-            "--relaxed-security"
+            "-p", str(device.get('appium_port'))
         ]
         
         print(f"🔧 Starting Appium command: {' '.join(appium_cmd)}")
@@ -1595,7 +3008,7 @@ async def start_device(device_id: str, request: Optional[StartDeviceRequest] = N
         
         # Wait for Appium to start and check if it's actually running
         print("⏳ Waiting for Appium to start...")
-        time.sleep(3)
+        await asyncio.sleep(3)  # ASYNC VERSION TO NOT BLOCK WEBSOCKETS
         
         # Check if process is still running
         if process.poll() is not None:
@@ -1694,14 +3107,25 @@ async def start_device(device_id: str, request: Optional[StartDeviceRequest] = N
             # Send WebSocket update for device status change
             await broadcast_device_status_update(device_id, "running", "Appium server ready, script will initialize")
             
-            # Start template execution job (script will create its own session)
+            # Start automation based on account phases
             try:
-                # Pass template data from request if available
-                template_data = request.template_data if request else None
-                job_id = await start_template_execution_job(device_id, template_data)
-                print(f"🚀 Started job {job_id} for device {device_id}")
+                if warmup_accounts:
+                    # Start warmup automation for warmup accounts
+                    print(f"🔥 Starting warmup automation for {len(warmup_accounts)} accounts")
+                    job_id = await start_warmup_automation(device_id, warmup_accounts)
+                elif posting_accounts:
+                    # Start posting automation for posting accounts
+                    print(f"📝 Starting posting automation for {len(posting_accounts)} accounts")
+                    template_data = request.template_data if request else None
+                    job_id = await start_template_execution_job(device_id, template_data)
+                else:
+                    print(f"⚠️ No accounts found for device {device_id}")
+                    job_id = None
+                    
+                if job_id:
+                    print(f"🚀 Started automation job {job_id} for device {device_id}")
             except Exception as e:
-                print(f"❌ Failed to start job: {e}")
+                print(f"❌ Failed to start automation: {e}")
                 job_id = None
             
             return {
@@ -1734,12 +3158,21 @@ async def stop_device(device_id: str):
     """Stop Appium for a specific device"""
     # License validation before any action
     key = license_key or load_license_key()
-    # Use device_id label if device lookup fails
-    dev = next((d for d in devices if d.get("id") == device_id), None)
-    val_device_id = (dev or {}).get("udid", device_id)
-    validation = validate_license(key, val_device_id)
-    if not validation.get("valid", False):
-        raise HTTPException(status_code=403, detail={"message": "License invalid or expired", "details": validation})
+    # Allow local development if no license
+    if key:
+        # Use device_id label if device lookup fails
+        dev = next((d for d in devices if d.get("id") == device_id), None)
+        val_device_id = (dev or {}).get("udid", device_id)
+        validation = validate_license(key, val_device_id)
+        if not validation.get("valid", False):
+            raise HTTPException(status_code=403, detail={"message": "License invalid or expired", "details": validation})
+
+    # Signal scheduler to stop
+    try:
+        if 'DEVICE_KEEP_RUNNING' in globals():
+            DEVICE_KEEP_RUNNING[device_id] = False
+    except Exception:
+        pass
 
     if device_id in running_appium_processes:
         process = running_appium_processes[device_id]
@@ -1770,7 +3203,71 @@ async def stop_device(device_id: str):
         
         return {"status": "stopped", "device_id": device_id}
     else:
+        # Ensure device status is set to stopped and notify listeners even if no process found
+        for device in devices:
+            if device.get("id") == device_id:
+                device['status'] = "stopped"
+                break
+        await broadcast_device_status_update(device_id, "stopped", "Device stopped")
         return {"status": "not_running", "device_id": device_id}
+
+
+@app.post("/api/v1/devices/{device_id}/pause")
+async def pause_device(device_id: str):
+    """Pause automation scheduler for a specific device (keep Appium running)."""
+    # License validation before any action
+    key = license_key or load_license_key()
+    dev = next((d for d in devices if d.get("id") == device_id), None)
+    val_device_id = (dev or {}).get("udid", device_id)
+    validation = validate_license(key, val_device_id)
+    if not validation.get("valid", False):
+        raise HTTPException(status_code=403, detail={"message": "License invalid or expired", "details": validation})
+
+    global DEVICE_PAUSED
+    if 'DEVICE_PAUSED' not in globals():
+        DEVICE_PAUSED = {}
+    DEVICE_PAUSED[device_id] = True
+
+    # Update device status and broadcast
+    for device in devices:
+        if device.get("id") == device_id:
+            device['status'] = "paused"
+            break
+    await broadcast_device_status_update(device_id, "paused", "Device paused")
+    try:
+        await broadcast_account_status_update(device_id)
+    except Exception:
+        pass
+    return {"status": "paused", "device_id": device_id}
+
+
+@app.post("/api/v1/devices/{device_id}/resume")
+async def resume_device(device_id: str):
+    """Resume automation scheduler for a specific device."""
+    # License validation before any action
+    key = license_key or load_license_key()
+    dev = next((d for d in devices if d.get("id") == device_id), None)
+    val_device_id = (dev or {}).get("udid", device_id)
+    validation = validate_license(key, val_device_id)
+    if not validation.get("valid", False):
+        raise HTTPException(status_code=403, detail={"message": "License invalid or expired", "details": validation})
+
+    global DEVICE_PAUSED
+    if 'DEVICE_PAUSED' not in globals():
+        DEVICE_PAUSED = {}
+    DEVICE_PAUSED[device_id] = False
+
+    # Update status and broadcast
+    for device in devices:
+        if device.get("id") == device_id:
+            device['status'] = "running"
+            break
+    await broadcast_device_status_update(device_id, "active", "Device resumed")
+    try:
+        await broadcast_account_status_update(device_id)
+    except Exception:
+        pass
+    return {"status": "running", "device_id": device_id}
 
 # Job endpoints
 @app.get("/api/v1/jobs")
@@ -1827,12 +3324,317 @@ async def create_job(job: Job):
 
 # Account endpoints
 @app.get("/api/v1/accounts")
-async def get_accounts():
-    return {"accounts": [], "total": 0}
+async def get_accounts(device_id: str = None):
+    """Get accounts from local persistent storage, optionally filtered by device_id"""
+    try:
+        accounts = load_accounts()
+        if device_id:
+            accounts = [a for a in accounts if str(a.get('device_id')) == str(device_id)]
+        return {"items": accounts, "total": len(accounts)}
+    except Exception as e:
+        # Ensure we never block - always return something
+        print(f"⚠️ get_accounts error: {e}")
+        return {"items": [], "total": 0}
+
+@app.post("/api/v1/accounts/sync")
+async def sync_accounts(payload: dict):
+    """Sync accounts from frontend localStorage export.
+    Expected payload: { "accounts": [ { device_id, username, container_number, ... }, ... ] }
+    """
+    try:
+        accounts_list = payload.get("accounts", []) or []
+        if not isinstance(accounts_list, list):
+            raise HTTPException(status_code=400, detail="accounts must be a list")
+        # Basic normalization
+        normalized = []
+        for a in accounts_list:
+            if not isinstance(a, dict):
+                continue
+            rec = {
+                "id": a.get("id") or a.get("_id") or str(uuid.uuid4()),
+                "device_id": str(a.get("device_id") or a.get("deviceId") or ""),
+                "username": a.get("username") or a.get("name") or "",
+                "container_number": str(a.get("container_number") or a.get("containerNumber") or a.get("container") or ""),
+                "platform": a.get("platform") or "threads",
+            }
+            normalized.append(rec)
+        save_accounts(normalized)
+        return {"success": True, "saved": len(normalized)}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to sync accounts: {str(e)}")
 
 @app.post("/api/v1/accounts")
 async def create_account(account: dict):
-    return {"id": f"account-{int(time.time())}", **account}
+    """Create a new account and persist it to the license-aware local storage file"""
+    try:
+        print(f"🔍 CREATE/UPDATE ACCOUNT - Received data: {account}")
+        
+        # Normalize and assign ID
+        new_id = account.get("id") or f"account-{int(time.time())}"
+        rec = {
+            "id": new_id,
+            "device_id": str(account.get("device_id") or account.get("device") or ""),
+            "username": account.get("username") or account.get("threads_username") or account.get("instagram_username") or account.get("name") or "",
+            "container_number": str(account.get("container_number") or account.get("containerNumber") or account.get("container") or ""),
+            "platform": account.get("platform") or "threads",
+        }
+        
+        # Preserve account_phase if provided
+        if "account_phase" in account:
+            rec["account_phase"] = account["account_phase"]
+            print(f"🔍 CREATE/UPDATE ACCOUNT - Preserving account_phase: {account['account_phase']}")
+        
+        # Merge with existing to keep any extra fields
+        rec.update(account)
+        
+        print(f"🔍 CREATE/UPDATE ACCOUNT - Final record: {rec}")
+        
+        # Load existing accounts, append, and save
+        existing = load_accounts()
+        
+        # ALWAYS preserve account_phase for existing accounts if not provided in update
+        # This prevents the frontend from accidentally removing the phase field
+        for existing_account in existing:
+            if str(existing_account.get("id")) == str(new_id):
+                # If account_phase not provided in update, preserve existing one
+                if "account_phase" not in account and "account_phase" in existing_account:
+                    rec["account_phase"] = existing_account["account_phase"]
+                    print(f"🔍 CREATE/UPDATE ACCOUNT - Preserved existing account_phase: {existing_account['account_phase']}")
+                # If account_phase is provided, use it
+                elif "account_phase" in account:
+                    print(f"🔍 CREATE/UPDATE ACCOUNT - Using provided account_phase: {account['account_phase']}")
+                # If no existing account_phase, default to posting
+                elif "account_phase" not in rec:
+                    rec["account_phase"] = "posting"
+                    print(f"🔍 CREATE/UPDATE ACCOUNT - Set default account_phase: posting")
+                break
+        
+        # Ensure account_phase is always set (safety net)
+        if "account_phase" not in rec:
+            rec["account_phase"] = "posting"
+            print(f"🔍 CREATE/UPDATE ACCOUNT - Safety net: Set default account_phase to posting")
+        
+        # Replace if same id exists
+        existing = [a for a in existing if str(a.get("id")) != str(rec.get("id"))]
+        existing.append(rec)
+        
+        # Ensure ALL accounts have account_phase field (final safety check)
+        for account in existing:
+            if "account_phase" not in account:
+                account["account_phase"] = "posting"
+                print(f"🔍 CREATE/UPDATE ACCOUNT - Safety net: Added account_phase to account {account.get('id')}")
+        
+        save_accounts(existing)
+        
+        print(f"🔍 CREATE/UPDATE ACCOUNT - Saved account with account_phase: {rec.get('account_phase', 'NOT SET')}")
+        return rec
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to create account: {str(e)}")
+
+@app.delete("/api/v1/accounts/{account_id}")
+async def delete_account(account_id: str):
+    """Delete an account by ID from the license-aware local storage file"""
+    try:
+        # Load existing accounts
+        existing = load_accounts()
+        # Find and remove the account
+        original_count = len(existing)
+        existing = [a for a in existing if str(a.get("id")) != str(account_id)]
+        
+        if len(existing) < original_count:
+            # Account was found and removed
+            save_accounts(existing)
+            print(f"🗑️ Deleted account {account_id} from storage")
+            return {"success": True, "deleted": account_id}
+        else:
+            # Account not found
+            return {"success": False, "message": "Account not found"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to delete account: {str(e)}")
+
+@app.get("/api/v1/accounts/stats")
+async def get_accounts_stats():
+    """Basic accounts stats to satisfy frontend checks"""
+    try:
+        accounts = load_accounts()
+        return {"total": len(accounts)}
+    except Exception:
+        return {"total": 0}
+
+@app.post("/api/v1/accounts/update-phase")
+async def update_account_phase(request: dict):
+    """Update account phase in warmup tracking files"""
+    try:
+        account_id = request.get('account_id')
+        username = request.get('username')
+        phase = request.get('phase')
+        
+        if not all([account_id, username, phase]):
+            raise HTTPException(status_code=400, detail="Missing required fields: account_id, username, phase")
+        
+        if phase not in ['warmup', 'posting']:
+            raise HTTPException(status_code=400, detail="Phase must be 'warmup' or 'posting'")
+        
+        # Update the warmup tracking file
+        base_dir = os.path.dirname(__file__)
+        license_file = os.path.join(base_dir, "accounts_warmup_tracking_license_dev.json")
+        local_file = os.path.join(base_dir, "accounts_warmup_tracking_local_dev.json")
+        
+        # Use license file if it exists, otherwise local file
+        warmup_file = license_file if os.path.exists(license_file) else local_file
+        
+        # Load existing data
+        data = {}
+        if os.path.exists(warmup_file):
+            with open(warmup_file, 'r') as f:
+                data = json.load(f)
+        
+        # Ensure license_dev section exists
+        if 'license_dev' not in data:
+            data['license_dev'] = {}
+        
+        # Update the account phase in warmup tracking file
+        account_key = f"account_{account_id}"
+        if account_key not in data['license_dev']:
+            data['license_dev'][account_key] = {}
+        
+        data['license_dev'][account_key]['account_phase'] = phase
+        
+        # Save the updated warmup tracking data
+        with open(warmup_file, 'w') as f:
+            json.dump(data, f, indent=2)
+        
+        print(f"✅ Updated account {username} phase to {phase} in {warmup_file}")
+        
+        # Also update the accounts file
+        try:
+            accounts = load_accounts()
+            account_found = False
+            for account in accounts:
+                if str(account.get('id')) == str(account_id):
+                    account['account_phase'] = phase
+                    account_found = True
+                    break
+            
+            if account_found:
+                save_accounts(accounts)
+                print(f"✅ Updated account {username} phase to {phase} in accounts file")
+            else:
+                print(f"⚠️ Account {account_id} not found in accounts file")
+        except Exception as e:
+            print(f"⚠️ Failed to update accounts file: {e}")
+        
+        return {"status": "success", "message": f"Account {username} phase updated to {phase}"}
+        
+    except Exception as e:
+        print(f"❌ Error updating account phase: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/v1/devices/{device_id}/account-status")
+async def get_device_account_status(device_id: str):
+    """Get detailed account status for a device including cooldowns and post counts"""
+    try:
+        # Get accounts assigned to this device
+        assigned_accounts = DEVICE_ACCOUNTS.get(device_id, []) if 'DEVICE_ACCOUNTS' in globals() else []
+        
+        if not assigned_accounts:
+            return {"accounts": [], "posting_interval_minutes": 30}
+        
+        # Get posting interval from template
+        posting_interval_minutes = 30  # Default
+        if 'DEVICE_TEMPLATES' in globals() and DEVICE_TEMPLATES.get(device_id):
+            template_data = DEVICE_TEMPLATES[device_id]
+            settings = template_data.get('settings', {})
+            posting_interval_minutes = int(settings.get('postingIntervalMinutes', 30) or 30)
+        
+        # Get daily target from template
+        daily_target = 0
+        try:
+            if 'DEVICE_TEMPLATES' in globals() and DEVICE_TEMPLATES.get(device_id):
+                template_data = DEVICE_TEMPLATES[device_id]
+                settings = template_data.get('settings', {})
+                daily_target = int(settings.get('textPostsPerDay', 0) or 0)
+        except Exception as e:
+            print(f"⚠️ Failed to get daily target for device {device_id}: {e}")
+            daily_target = 2  # Default fallback
+        
+        items = []
+        for acc in assigned_accounts:
+            account_id = str(acc.get('id', ''))
+            username = acc.get('username', 'unknown')
+            
+            # Get post counts
+            posts_total = 0
+            posts_today = 0
+            last_post_at = None
+            
+            try:
+                # Load post tracking data
+                tracking_data = load_account_post_tracking()
+                for item in tracking_data:
+                    if item.get('username') == username:
+                        posts_total = item.get('posts_total', 0)
+                        posts_today = item.get('posts_today', 0)
+                        last_post_at = item.get('last_post_at')
+                        break
+            except Exception as e:
+                print(f"⚠️ Failed to load post tracking for {username}: {e}")
+            
+            # Check cooldown status
+            status = "ready"
+            remaining_minutes = 0
+            
+            if account_id in LAST_ACCOUNT_SESSIONS:
+                last_post_time = LAST_ACCOUNT_SESSIONS[account_id]
+                elapsed_minutes = (time.time() - last_post_time) / 60
+                
+                if elapsed_minutes < posting_interval_minutes:
+                    status = "cooldown"
+                    remaining_minutes = posting_interval_minutes - elapsed_minutes
+            
+            # Get warmup data
+            warmup_data = get_warmup_account_data(account_id)
+            account_phase = warmup_data.get('account_phase', 'posting') if warmup_data else 'posting'
+            warmup_completed_today = warmup_data.get('warmup_completed_today', False) if warmup_data else False
+            current_day = warmup_data.get('current_day', 1) if warmup_data else 1
+            warmup_stats = warmup_data.get('warmup_stats', {}) if warmup_data else {}
+            
+            # Determine final status based on phase and completion
+            final_status = status
+            if account_phase == 'warmup':
+                if warmup_completed_today:
+                    final_status = "warmup_completed"
+                else:
+                    final_status = "warmup_ready"
+            elif posts_today >= daily_target and daily_target > 0:
+                final_status = "completed"
+            
+            items.append({
+                "id": account_id,
+                "username": username,
+                "posts_total": posts_total,
+                "posts_today": posts_today,
+                "daily_target": daily_target,
+                "last_post_at": last_post_at,
+                "status": final_status,
+                "remaining_minutes": remaining_minutes,
+                # Warmup-specific data
+                "account_phase": account_phase,
+                "warmup_completed_today": warmup_completed_today,
+                "current_day": current_day,
+                "warmup_stats": warmup_stats
+            })
+        
+        return {
+            "accounts": items,
+            "posting_interval_minutes": posting_interval_minutes
+        }
+        
+    except Exception as e:
+        print(f"❌ Error getting account status for device {device_id}: {e}")
+        return {"accounts": [], "posting_interval_minutes": 30}
 
 # Templates endpoints (for frontend compatibility)
 @app.get("/api/v1/templates")
@@ -1916,6 +3718,138 @@ async def manual_profile_scan(device_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Manual scan failed: {str(e)}")
 
+@app.post("/api/v1/templates/{template_id}/execute")
+async def execute_posting_template(template_id: str, request: dict):
+    """Execute a posting template for specific accounts"""
+    try:
+        print(f"📝 Starting posting template execution: template={template_id}")
+        print(f"📝 Request data: {request}")
+        
+        device_id = request.get('device_id')
+        account_ids = request.get('account_ids', [])
+        template_data = request.get('template_data')
+        
+        if not device_id or not account_ids:
+            raise HTTPException(status_code=400, detail="Missing required parameters: device_id, account_ids")
+        
+        # Convert device_id to string if it's not None
+        if device_id is not None:
+            device_id = str(device_id)
+        
+        # Generate job ID
+        job_id = f"posting_{uuid.uuid4().hex[:8]}"
+
+        # Broadcast immediate WS update so UI flips to running
+        try:
+            first_account_id = str(account_ids[0]) if account_ids else ""
+            username = "unknown"
+            try:
+                for a in (load_accounts() or []):
+                    if str(a.get("id")) == first_account_id:
+                        username = str(a.get("username", "unknown"))
+                        break
+            except Exception:
+                pass
+            import asyncio as _asyncio
+            _asyncio.create_task(broadcast_account_processing(
+                device_id=str(device_id),
+                username=username,
+                account_id=first_account_id,
+                current_step="Starting text post automation",
+                progress=0
+            ))
+        except Exception as e:
+            print(f"⚠️ Failed to broadcast initial posting job update: {e}")
+        
+        # Start posting execution in background
+        asyncio.create_task(execute_real_threads_posts(device_id, len(account_ids), job_id, template_data))
+        
+        return {
+            "success": True,
+            "job_id": job_id,
+            "message": "Posting template execution started successfully"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Failed to start posting template execution: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to start posting template execution: {str(e)}")
+
+@app.post("/api/v1/runs/warmup")
+async def start_warmup_run(request: dict):
+    """Start a warmup run for a specific account"""
+    try:
+        print(f"🔥 DEBUG - Raw request received: {request}")
+        
+        device_id = request.get('device_id')
+        account_id = request.get('account_id')
+        warmup_template_id = request.get('warmup_template_id')
+        warmup_template_data = request.get('warmup_template_data')
+        posting_template_data = request.get('posting_template_data')
+        license_id = request.get('license_id')
+        
+        print(f"🔥 Starting warmup run: device={device_id}, account={account_id}, template={warmup_template_id}")
+        print(f"🔥 Warmup template data provided: {warmup_template_data is not None}")
+        
+        # Convert device_id to string if it's not None
+        if device_id is not None:
+            device_id = str(device_id)
+        
+        if not all([device_id, account_id, warmup_template_id]):
+            print(f"❌ Missing required parameters: device_id={device_id}, account_id={account_id}, warmup_template_id={warmup_template_id}")
+            raise HTTPException(status_code=400, detail="Missing required parameters: device_id, account_id, warmup_template_id")
+        
+        # License validation
+        key = license_key or load_license_key()
+        if not key and not license_id:
+            print("⚠️ No license key set - allowing local development mode")
+        elif key:
+            dev = next((d for d in devices if d.get("id") == device_id), None)
+            val_device_id = (dev or {}).get("udid", device_id)
+            validation = validate_license(key, val_device_id)
+            if not validation.get("valid", False):
+                raise HTTPException(status_code=403, detail={"message": "License invalid or expired", "details": validation})
+        
+        # Generate job ID
+        job_id = f"warmup_{uuid.uuid4().hex[:8]}"
+
+        # Broadcast immediate WS update so UI flips to running for warmup
+        try:
+            username = "unknown"
+            try:
+                for a in (load_accounts() or []):
+                    if str(a.get("id")) == str(account_id):
+                        username = str(a.get("username", "unknown"))
+                        break
+            except Exception:
+                pass
+            import asyncio as _asyncio
+            _asyncio.create_task(broadcast_account_processing(
+                device_id=str(device_id),
+                username=username,
+                account_id=str(account_id),
+                current_step="Starting warmup automation",
+                progress=0
+            ))
+        except Exception as e:
+            print(f"⚠️ Failed to broadcast initial warmup job update: {e}")
+        
+        # Start warmup execution in background
+        asyncio.create_task(execute_warmup_session(device_id, warmup_template_data, job_id))
+        
+        return {
+            "success": True,
+            "job_id": job_id,
+            "message": "Warmup run started successfully"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Failed to start warmup run: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to start warmup run: {str(e)}")
+
 # WebSocket endpoints (for real-time updates)
 @app.websocket("/api/v1/ws")
 async def websocket_v1(websocket: WebSocket):
@@ -1926,6 +3860,8 @@ async def websocket_v1(websocket: WebSocket):
     """
     await websocket.accept()
     active_websocket_connections.add(websocket)
+    print(f"🔌 WebSocket connection established. Total connections: {len(active_websocket_connections)}")
+    
     try:
         # Send a welcome/status message
         await websocket.send_json({
@@ -1933,15 +3869,45 @@ async def websocket_v1(websocket: WebSocket):
             "message": "Connected to FSN Local Backend WebSocket",
             "active_connections": get_active_connection_count(),
         })
+        
+        # Start a heartbeat task to keep connection alive
+        async def send_heartbeat():
+            while True:
+                try:
+                    await asyncio.sleep(30)  # Send heartbeat every 30 seconds
+                    if websocket in active_websocket_connections:
+                        await websocket.send_json({
+                            "type": "heartbeat",
+                            "active_connections": get_active_connection_count(),
+                            "timestamp": datetime.now().isoformat()
+                        })
+                except Exception as e:
+                    print(f"⚠️ Heartbeat error: {e}")
+                    break
+        
+        # Start heartbeat task
+        heartbeat_task = asyncio.create_task(send_heartbeat())
 
         # Basic receive loop; echo pings and ignore others
         while True:
-            msg = await websocket.receive_text()
-            if msg.strip().lower() in {"ping", "\"ping\""}:
-                await websocket.send_json({"type": "pong", "active_connections": get_active_connection_count()})
-            else:
-                # Echo back as acknowledgement so frontend hooks don't error
-                await websocket.send_json({"type": "ack", "received": msg})
+            try:
+                msg = await websocket.receive_text()
+                if msg.strip().lower() in {"ping", "\"ping\""}:
+                    await websocket.send_json({"type": "pong", "active_connections": get_active_connection_count()})
+                else:
+                    # Echo back as acknowledgement so frontend hooks don't error
+                    await websocket.send_json({"type": "ack", "received": msg})
+            except WebSocketDisconnect:
+                print(f"🔌 WebSocket disconnected by client")
+                break
+            except Exception as e:
+                print(f"⚠️ WebSocket receive error: {e}")
+                # Check if WebSocket is still connected before breaking
+                if websocket.client_state.name == "DISCONNECTED":
+                    print(f"🔌 WebSocket is disconnected, ending receive loop")
+                    break
+                # For other errors, continue the loop
+                await asyncio.sleep(0.1)
     except WebSocketDisconnect:
         pass
     except Exception:
@@ -1951,8 +3917,17 @@ async def websocket_v1(websocket: WebSocket):
         except Exception:
             pass
     finally:
+        # Cancel heartbeat task
+        try:
+            if 'heartbeat_task' in locals():
+                heartbeat_task.cancel()
+        except Exception:
+            pass
+        
+        # Remove from active connections
         if websocket in active_websocket_connections:
             active_websocket_connections.discard(websocket)
+            print(f"🔌 WebSocket connection removed. Total connections: {len(active_websocket_connections)}")
 
 @app.get("/api/ws")
 async def websocket_placeholder():

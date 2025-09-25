@@ -18,6 +18,7 @@ import { HeroCard } from "@/components/hero-card"
 import { usePlatform } from "@/lib/platform"
 import { PlatformSwitch } from "@/components/platform-switch"
 import { GlobalSearchBar } from "@/components/search/global-search-bar"
+import { PlatformHeader } from "@/components/platform-header"
 import { licenseAwareStorageService, LocalWarmupTemplate } from "@/lib/services/license-aware-storage-service"
 
 
@@ -34,7 +35,7 @@ export default function WarmupPage() {
     platform: "threads" as "threads" | "instagram",
     description: "",
     days: [
-      { day: 1, scrollTime: 10, likes: 5, follows: 2, comments: 0, stories: 0, posts: 0 }
+      { day: 1, scrollTime: 10, likes: 5, follows: 2 }
     ] as WarmupDay[]
   })
 
@@ -43,10 +44,8 @@ export default function WarmupPage() {
     const loadTemplates = async () => {
       try {
         const savedTemplates = await licenseAwareStorageService.getWarmupTemplates() // Get actual warmup templates
-        // Filter templates by current platform (show all if platform is 'all')
-        const filteredTemplates = platform === 'all' 
-          ? savedTemplates 
-          : savedTemplates.filter((t: any) => t.platform === platform)
+        // Filter templates by current platform
+        const filteredTemplates = savedTemplates.filter((t: any) => t.platform === platform)
         setWarmupTemplates(filteredTemplates)
         console.log('🔥 WARMUP - Loaded warmup templates:', {
           total: savedTemplates.length,
@@ -68,10 +67,7 @@ export default function WarmupPage() {
       day: formData.days.length + 1,
       scrollTime: 10,
       likes: 5,
-      follows: 2,
-      comments: 0,
-      stories: 0,
-      posts: 0
+      follows: 2
     }
     setFormData({
       ...formData,
@@ -166,17 +162,40 @@ export default function WarmupPage() {
   }
 
   const handleDeleteTemplate = async (id: string) => {
+    console.log('🗑️ WARMUP - Starting delete for template:', id)
+    
+    // Optimistically update UI first
+    const templateToDelete = warmupTemplates.find(t => t.id === id)
+    const updatedTemplates = warmupTemplates.filter(t => t.id !== id)
+    setWarmupTemplates(updatedTemplates)
+    
     try {
-      await licenseAwareStorageService.deleteTemplate(id)
-      const updatedTemplates = warmupTemplates.filter(t => t.id !== id)
-      setWarmupTemplates(updatedTemplates)
-      
+      await licenseAwareStorageService.deleteWarmupTemplate(id)
       setSuccessMessage("Warmup template deleted successfully!")
       setShowSuccess(true)
+      console.log('✅ WARMUP - Template deleted successfully')
     } catch (error) {
-      console.error('Failed to delete warmup template:', error)
-      setSuccessMessage("Failed to delete warmup template. Please try again.")
-      setShowSuccess(true)
+      console.error('❌ WARMUP - Delete operation had issues:', error)
+      
+      // Check if the template was actually removed from localStorage despite errors
+      const currentTemplates = await licenseAwareStorageService.getWarmupTemplates()
+      const stillExists = currentTemplates.some(t => t.id === id)
+      
+      if (!stillExists) {
+        // Template was successfully deleted despite API errors
+        console.log('✅ WARMUP - Template was successfully deleted from storage')
+        setSuccessMessage("Warmup template deleted successfully!")
+        setShowSuccess(true)
+      } else {
+        // Template deletion failed, restore it to UI
+        console.warn('⚠️ WARMUP - Template deletion failed, restoring to UI')
+        if (templateToDelete) {
+          setWarmupTemplates(prev => [...prev, templateToDelete])
+        }
+        
+        setSuccessMessage("Failed to delete warmup template. The template has been restored.")
+        setShowSuccess(true)
+      }
     }
   }
 
@@ -202,7 +221,7 @@ export default function WarmupPage() {
       platform: "threads",
       description: "",
       days: [
-        { day: 1, scrollTime: 10, likes: 5, follows: 2, comments: 0, stories: 0, posts: 0 }
+        { day: 1, scrollTime: 10, likes: 5, follows: 2 }
       ]
     })
   }
@@ -210,7 +229,7 @@ export default function WarmupPage() {
   const calculateTotalActions = (template: LocalWarmupTemplate) => {
     if (!template.days || template.days.length === 0) return 0
     return template.days.reduce((total, day) => {
-      return total + day.likes + day.follows + (day.comments || 0) + (day.stories || 0) + (day.posts || 0)
+      return total + day.likes + day.follows
     }, 0)
   }
 
@@ -222,9 +241,9 @@ export default function WarmupPage() {
   return (
     <LicenseBlocker action="access warmup templates">
       <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
-        {/* Main Header Section - Dark Background */}
-        <div className="relative overflow-hidden bg-gradient-to-r from-black via-gray-900 to-black">
-          <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGRlZnM+CjxwYXR0ZXJuIGlkPSJncmlkIiB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHBhdHRlcm5Vbml0cz0idXNlclNwYWNlT25Vc2UiPgo8cGF0aCBkPSJNIDQwIDAgTCAwIDAgMCA0MCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJyZ2JhKDI1NSwyNTUsMjU1LDAuMDUpIiBzdHJva2Utd2lkdGg9IjEiLz4KPC9wYXR0ZXJuPgo8L2RlZnM+CjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9InVybCgjZ3JpZCkiLz4KPHN2Zz4K')] opacity-10"></div>
+        {/* Main Header Section - Platform Colors */}
+        <PlatformHeader>
+          <div className="absolute inset-0 opacity-10 bg-[length:40px_40px] bg-[image:url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGRlZnM+CjxwYXR0ZXJuIGlkPSJncmlkIiB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHBhdHRlcm5Vbml0cz0idXNlclNwYWNlT25Vc2UiPgo8cGF0aCBkPSJNIDQwIDAgTCAwIDAgMCA0MCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJyZ2JhKDI1NSwyNTUsMjU1LDAuMDUpIiBzdHJva2Utd2lkdGg9IjEiLz4KPC9wYXR0ZXJuPgo8L2RlZnM+CjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9InVybCgjZ3JpZCkiLz4KPHN2Zz4K')]"></div>
           
           <div className="relative px-6 py-12">
             <div className="max-w-7xl mx-auto">
@@ -394,44 +413,6 @@ export default function WarmupPage() {
                             </div>
                           </div>
                           
-                          <div className="space-y-2 min-w-0">
-                            <Label className="text-sm font-medium">Comments</Label>
-                            <div className="border-2 border-gray-300 rounded-md p-1 bg-white">
-                              <Input
-                                type="number"
-                                min="0"
-                                value={day.comments || 0}
-                                onChange={(e) => updateDay(dayIndex, 'comments', parseInt(e.target.value) || 0)}
-                                className="w-full border-0 p-0 focus:ring-0 focus:outline-none h-8"
-                              />
-                            </div>
-                          </div>
-                          
-                          <div className="space-y-2 min-w-0">
-                            <Label className="text-sm font-medium">Stories</Label>
-                            <div className="border-2 border-gray-300 rounded-md p-1 bg-white">
-                              <Input
-                                type="number"
-                                min="0"
-                                value={day.stories || 0}
-                                onChange={(e) => updateDay(dayIndex, 'stories', parseInt(e.target.value) || 0)}
-                                className="w-full border-0 p-0 focus:ring-0 focus:outline-none h-8"
-                              />
-                            </div>
-                          </div>
-                          
-                          <div className="space-y-2 min-w-0">
-                            <Label className="text-sm font-medium">Posts</Label>
-                            <div className="border-2 border-gray-300 rounded-md p-1 bg-white">
-                              <Input
-                                type="number"
-                                min="0"
-                                value={day.posts || 0}
-                                onChange={(e) => updateDay(dayIndex, 'posts', parseInt(e.target.value) || 0)}
-                                className="w-full border-0 p-0 focus:ring-0 focus:outline-none h-8"
-                              />
-                            </div>
-                          </div>
                         </div>
                       </Card>
                     ))}
@@ -469,7 +450,7 @@ export default function WarmupPage() {
               </div>
             </div>
           </div>
-        </div>
+        </PlatformHeader>
 
         <div className="max-w-7xl mx-auto px-6 py-8">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -479,12 +460,10 @@ export default function WarmupPage() {
                 <Thermometer className="w-12 h-12 text-gray-400" />
               </div>
               <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                {platform === 'all' ? 'No Warmup Templates Found' : `No ${platform.charAt(0).toUpperCase() + platform.slice(1)} Warmup Templates`}
+{`No ${platform.charAt(0).toUpperCase() + platform.slice(1)} Warmup Templates`}
               </h3>
               <p className="text-gray-600 mb-6 max-w-md mx-auto">
-                {platform === 'all' 
-                  ? 'You don\'t have any warmup templates yet. Create your first warmup template to gradually increase your account activity.'
-                  : `You don't have any ${platform} warmup templates yet. Create a new ${platform} warmup template to gradually increase your account activity.`
+{`You don't have any ${platform} warmup templates yet. Create a new ${platform} warmup template to gradually increase your account activity.`
                 }
               </p>
               <Button 
@@ -745,44 +724,6 @@ export default function WarmupPage() {
                         </div>
                       </div>
                       
-                      <div className="space-y-2 min-w-0">
-                        <Label className="text-sm font-medium">Comments</Label>
-                        <div className="border-2 border-gray-300 rounded-md p-1 bg-white">
-                          <Input
-                            type="number"
-                            min="0"
-                            value={day.comments || 0}
-                            onChange={(e) => updateDay(dayIndex, 'comments', parseInt(e.target.value) || 0)}
-                            className="w-full border-0 p-0 focus:ring-0 focus:outline-none h-8"
-                          />
-                        </div>
-                      </div>
-                      
-                      <div className="space-y-2 min-w-0">
-                        <Label className="text-sm font-medium">Stories</Label>
-                        <div className="border-2 border-gray-300 rounded-md p-1 bg-white">
-                          <Input
-                            type="number"
-                            min="0"
-                            value={day.stories || 0}
-                            onChange={(e) => updateDay(dayIndex, 'stories', parseInt(e.target.value) || 0)}
-                            className="w-full border-0 p-0 focus:ring-0 focus:outline-none h-8"
-                          />
-                        </div>
-                      </div>
-                      
-                      <div className="space-y-2 min-w-0">
-                        <Label className="text-sm font-medium">Posts</Label>
-                        <div className="border-2 border-gray-300 rounded-md p-1 bg-white">
-                          <Input
-                            type="number"
-                            min="0"
-                            value={day.posts || 0}
-                            onChange={(e) => updateDay(dayIndex, 'posts', parseInt(e.target.value) || 0)}
-                            className="w-full border-0 p-0 focus:ring-0 focus:outline-none h-8"
-                          />
-                        </div>
-                      </div>
                     </div>
                   </Card>
                 ))}

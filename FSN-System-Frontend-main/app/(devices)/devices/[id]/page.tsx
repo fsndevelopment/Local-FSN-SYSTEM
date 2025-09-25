@@ -15,6 +15,7 @@ import { calculateDeviceCapacity } from "@/lib/utils/capacity-calculator"
 import { useDevice } from "@/lib/hooks/use-devices"
 import { useTemplates } from "@/lib/hooks/use-templates"
 import { useAccounts } from "@/lib/hooks/use-accounts"
+import { licenseAwareStorageService } from "@/lib/services/license-aware-storage-service"
 
 // Device detail page component
 
@@ -28,8 +29,10 @@ export default function DeviceDetailPage({ params }: { params: { id: string } })
   
   // Extract templates array from the query result
   const templates = templatesData?.data?.items || []
-  
+  const [warmupTemplates, setWarmupTemplates] = useState<{ id: string, name: string }[]>([])
+
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>("")
+  const [selectedWarmupTemplateId, setSelectedWarmupTemplateId] = useState<string>("")
   const [deviceCapacity, setDeviceCapacity] = useState("safe")
 
   // Set initial template when device loads
@@ -37,6 +40,13 @@ export default function DeviceDetailPage({ params }: { params: { id: string } })
     if (device?.template_id) {
       setSelectedTemplateId(device.template_id.toString())
     }
+    // Load warmup assignment from storage
+    const warmupAssign = licenseAwareStorageService.getDeviceWarmupTemplates()[String(deviceId)]
+    if (warmupAssign) setSelectedWarmupTemplateId(String(warmupAssign))
+    // Load warmup templates list from storage
+    licenseAwareStorageService.getWarmupTemplates().then(list => {
+      setWarmupTemplates(list.map(t => ({ id: t.id, name: t.name })))
+    }).catch(() => {})
   }, [device])
 
   // Update device capacity when template changes
@@ -63,6 +73,17 @@ export default function DeviceDetailPage({ params }: { params: { id: string } })
     }
     // TODO: Make API call to update device template
     console.log('Template changed to:', templateId)
+  }
+
+  const handleWarmupTemplateChange = (templateId: string) => {
+    if (templateId === "none") {
+      setSelectedWarmupTemplateId("")
+      licenseAwareStorageService.removeWarmupTemplateFromDevice(String(deviceId))
+    } else {
+      setSelectedWarmupTemplateId(templateId)
+      licenseAwareStorageService.assignWarmupTemplateToDevice(String(deviceId), templateId)
+    }
+    console.log('Warmup Template changed to:', templateId)
   }
 
   const selectedTemplate = templates?.find(t => t.id.toString() === selectedTemplateId)
@@ -186,6 +207,37 @@ export default function DeviceDetailPage({ params }: { params: { id: string } })
                           <span className="text-xs text-muted-foreground ml-2">
                             {(template.photos_per_day || 0) + (template.text_posts_per_day || 0) + (template.likes_per_day || 0) + (template.follows_per_day || 0)} actions/day
                           </span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Warmup Template Assignment */}
+              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div className="flex-1">
+                  <div className="font-medium">
+                    {selectedWarmupTemplateId ? (warmupTemplates.find(t => t.id === selectedWarmupTemplateId)?.name || 'Warmup Template') : "No Warmup Template Assigned"}
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    Select a warmup template for this device
+                  </div>
+                </div>
+                <Select value={selectedWarmupTemplateId || "none"} onValueChange={handleWarmupTemplateChange}>
+                  <SelectTrigger className="w-40 h-8" data-warmup-template-select>
+                    <SelectValue placeholder="Select warmup" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">
+                      <div className="flex items-center space-x-2">
+                        <span className="text-muted-foreground">No Warmup</span>
+                      </div>
+                    </SelectItem>
+                    {warmupTemplates.map((t) => (
+                      <SelectItem key={t.id} value={t.id}>
+                        <div className="flex items-center justify-between w-full">
+                          <span>{t.name}</span>
                         </div>
                       </SelectItem>
                     ))}

@@ -53,6 +53,7 @@ export interface AccountUpdate {
   container_number?: number
   status?: 'active' | 'inactive' | 'warming_up' | 'suspended' | 'banned'
   warmup_phase?: 'phase_1' | 'phase_2' | 'phase_3' | 'complete'
+  account_phase?: 'warmup' | 'posting' // Add account phase field
 }
 
 // API Response interfaces

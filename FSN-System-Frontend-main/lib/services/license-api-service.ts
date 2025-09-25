@@ -18,7 +18,10 @@ export function setLicenseContext(licenseKey: string, deviceId: string) {
 
 export function getLicenseContext() {
   console.log('🔍 LICENSE API SERVICE - getLicenseContext called, context:', currentLicense)
-  return currentLicense
+  return currentLicense ? {
+    ...currentLicense,
+    isValid: true // Add isValid property
+  } : null
 }
 
 // Helper function to add license headers to API calls

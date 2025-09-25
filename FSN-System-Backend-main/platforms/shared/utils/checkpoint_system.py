@@ -17,7 +17,7 @@ Last Updated: January 15, 2025
 Status: Production-tested on Instagram (100% success rate)
 """
 
-import time
+import asyncio
 import logging
 import os
 from datetime import datetime
@@ -59,12 +59,12 @@ class CheckpointSystem(ABC):
         except Exception as e:
             self.logger.warning(f"⚠️ Could not save evidence for {checkpoint_name}: {e}")
 
-    def execute_checkpoint(self, driver, checkpoint_func, checkpoint_name: str) -> bool:
+    async def execute_checkpoint(self, driver, checkpoint_func, checkpoint_name: str) -> bool:
         """Execute a checkpoint with automatic evidence collection"""
         try:
             self.logger.info(f"🎯 CHECKPOINT: {checkpoint_name}")
             
-            success = checkpoint_func(driver)
+            success = await checkpoint_func(driver)
             
             if success:
                 self.checkpoints_passed.append(checkpoint_name)
@@ -81,7 +81,7 @@ class CheckpointSystem(ABC):
             self.logger.error(f"💥 CHECKPOINT ERROR {checkpoint_name}: {e}")
             return False
 
-    def run_checkpoint_sequence(self, driver, checkpoints: List[tuple]) -> bool:
+    async def run_checkpoint_sequence(self, driver, checkpoints: List[tuple]) -> bool:
         """
         Run a sequence of checkpoints
         
@@ -99,7 +99,7 @@ class CheckpointSystem(ABC):
             self.logger.info(f"\n{'='*50}")
             self.logger.info(f"CHECKPOINT {i}/{total_checkpoints}: {checkpoint_name}")
             
-            if self.execute_checkpoint(driver, checkpoint_func, checkpoint_name):
+            if await self.execute_checkpoint(driver, checkpoint_func, checkpoint_name):
                 success_count += 1
                 self.logger.info(f"✅ CHECKPOINT {i} COMPLETED")
             else:
@@ -107,7 +107,7 @@ class CheckpointSystem(ABC):
                 break
                 
             # Brief pause between checkpoints
-            time.sleep(1)
+            await asyncio.sleep(1)
         
         # Final results
         self.logger.info(f"\n{'='*60}")

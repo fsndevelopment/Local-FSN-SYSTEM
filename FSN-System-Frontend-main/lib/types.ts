@@ -146,9 +146,6 @@ export interface WarmupDay {
   scrollTime: number // in minutes
   likes: number
   follows: number
-  comments?: number
-  stories?: number
-  posts?: number
 }
 
 export interface WarmupTemplate {

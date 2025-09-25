@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<AppiumAUT>
+  <XCUIElementTypeApplication type="XCUIElementTypeApplication" name="Threads" label="Threads" enabled="true" visible="true" accessible="false" x="0" y="0" width="375" height="667" index="0">
+    <XCUIElementTypeWindow type="XCUIElementTypeWindow" enabled="true" visible="true" accessible="false" x="0" y="0" width="375" height="667" index="0">
+      <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="0" y="0" width="375" height="667" index="0">
+        <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="0" y="0" width="375" height="667" index="0">
+          <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="16" y="6" width="343" height="611" index="0">
+            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="16" y="6" width="343" height="611" index="0">
+              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="16" y="6" width="343" height="611" index="0">
+                <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="16" y="6" width="343" height="611" index="0">
+                  <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="16" y="6" width="343" height="611" index="0">
+                    <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="16" y="6" width="343" height="611" index="0">
+                      <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="16" y="6" width="343" height="611" index="0">
+                        <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="16" y="6" width="343" height="611" index="0">
+                          <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="16" y="6" width="343" height="611" index="0">
+                            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="16" y="6" width="343" height="611" index="0">
+                              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="16" y="-102" width="360" height="780" index="0">
+                                <XCUIElementTypeImage type="XCUIElementTypeImage" name="Ribbon-Upper-Third-Black" enabled="true" visible="false" accessible="false" x="16" y="-102" width="360" height="780" index="0"/>
+                              </XCUIElementTypeOther>
+                              <XCUIElementTypeImage type="XCUIElementTypeImage" name="Threads-lockup" enabled="true" visible="false" accessible="false" x="66" y="143" width="243" height="74" index="1"/>
+                              <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="Choose how to sign up for Threads" name="Choose how to sign up for Threads" label="Choose how to sign up for Threads" enabled="true" visible="false" accessible="true" x="59" y="252" width="208" height="17" index="2"/>
+                              <XCUIElementTypeCollectionView type="XCUIElementTypeCollectionView" enabled="true" visible="false" accessible="false" x="37" y="279" width="301" height="338" index="3">
+                                <XCUIElementTypeCell type="XCUIElementTypeCell" enabled="true" visible="false" accessible="true" x="37" y="279" width="301" height="125" index="0">
+                                  <XCUIElementTypeButton type="XCUIElementTypeButton" name="Continue with Instagram" label="Continue with Instagram" enabled="true" visible="false" accessible="true" x="37" y="279" width="301" height="125" index="0">
+                                    <XCUIElementTypeImage type="XCUIElementTypeImage" name="ig_icon_app_instagram_outline_24" enabled="true" visible="false" accessible="false" x="59" y="301" width="23" height="23" index="0"/>
+                                    <XCUIElementTypeImage type="XCUIElementTypeImage" name="ig_icon_chevron_right_outline_16" enabled="true" visible="false" accessible="false" x="300" y="305" width="16" height="15" index="1"/>
+                                  </XCUIElementTypeButton>
+                                </XCUIElementTypeCell>
+                                <XCUIElementTypeCell type="XCUIElementTypeCell" enabled="true" visible="false" accessible="false" x="37" y="403" width="301" height="8" index="1"/>
+                                <XCUIElementTypeCell type="XCUIElementTypeCell" enabled="true" visible="false" accessible="true" x="37" y="410" width="301" height="125" index="2">
+                                  <XCUIElementTypeButton type="XCUIElementTypeButton" name="Use mobile number" label="Use mobile number" enabled="true" visible="false" accessible="true" x="37" y="410" width="301" height="125" index="0">
+                                    <XCUIElementTypeImage type="XCUIElementTypeImage" name="ig_icon_call_outline_24" enabled="true" visible="false" accessible="false" x="59" y="432" width="23" height="23" index="0"/>
+                                    <XCUIElementTypeImage type="XCUIElementTypeImage" name="ig_icon_chevron_right_outline_16" enabled="true" visible="false" accessible="false" x="300" y="436" width="16" height="15" index="1"/>
+                                  </XCUIElementTypeButton>
+                                </XCUIElementTypeCell>
+                                <XCUIElementTypeOther type="XCUIElementTypeOther" value="0%" name="Vertical scroll bar, 1 page" label="Vertical scroll bar, 1 page" enabled="true" visible="false" accessible="false" x="306" y="279" width="29" height="293" index="3"/>
+                              </XCUIElementTypeCollectionView>
+                              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="16" y="571" width="343" height="46" index="4">
+                                <XCUIElementTypeButton type="XCUIElementTypeButton" name="Log in" label="Log in" enabled="true" visible="false" accessible="true" x="169" y="582" width="37" height="27" index="0">
+                                  <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="Log in" name="Log in" label="Log in" enabled="true" visible="false" accessible="false" x="169" y="587" width="37" height="17" index="0"/>
+                                </XCUIElementTypeButton>
+                              </XCUIElementTypeOther>
+                            </XCUIElementTypeOther>
+                          </XCUIElementTypeOther>
+                        </XCUIElementTypeOther>
+                      </XCUIElementTypeOther>
+                    </XCUIElementTypeOther>
+                  </XCUIElementTypeOther>
+                </XCUIElementTypeOther>
+              </XCUIElementTypeOther>
+            </XCUIElementTypeOther>
+            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="16" y="6" width="343" height="611" index="1"/>
+          </XCUIElementTypeOther>
+        </XCUIElementTypeOther>
+      </XCUIElementTypeOther>
+      <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="0" y="0" width="375" height="667" index="1">
+        <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="0" y="0" width="375" height="667" index="0">
+          <XCUIElementTypeOther type="XCUIElementTypeOther" name="bottom_sheet_background" enabled="true" visible="false" accessible="false" x="0" y="0" width="375" height="0" index="0"/>
+          <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="0" y="16" width="375" height="651" index="1">
+            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="0" y="16" width="375" height="651" index="0">
+              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="0" y="16" width="375" height="651" index="0"/>
+            </XCUIElementTypeOther>
+            <XCUIElementTypeButton type="XCUIElementTypeButton" name="feed-controls-menu-drag-handle" label="Close" enabled="true" visible="true" accessible="true" x="168" y="24" width="40" height="4" index="1"/>
+            <XCUIElementTypeScrollView type="XCUIElementTypeScrollView" enabled="true" visible="true" accessible="false" x="0" y="32" width="375" height="635" index="2">
+              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="0" y="32" width="375" height="635" index="0">
+                <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="0" y="32" width="375" height="4" index="0">
+                  <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="0" y="32" width="375" height="4" index="0"/>
+                </XCUIElementTypeOther>
+                <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="0" y="32" width="375" height="635" index="1">
+                  <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="0" y="32" width="375" height="635" index="0">
+                    <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="0" y="32" width="375" height="635" index="0">
+                      <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="0" y="32" width="375" height="635" index="0">
+                        <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="0" y="36" width="375" height="631" index="0">
+                          <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="0" y="36" width="375" height="631" index="0">
+                            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="0" y="36" width="375" height="631" index="0">
+                              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="0" y="36" width="375" height="631" index="0">
+                                <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="0" y="36" width="375" height="631" index="0">
+                                  <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="0" y="36" width="375" height="631" index="0">
+                                    <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="0" y="36" width="375" height="631" index="0">
+                                      <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="16" y="44" width="343" height="609" index="0">
+                                        <XCUIElementTypeOther type="XCUIElementTypeOther" name="Instagram from Meta" label="Instagram from Meta" enabled="true" visible="false" accessible="true" x="16" y="116" width="343" height="61" index="0"/>
+                                        <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="16" y="268" width="343" height="61" index="1">
+                                          <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="16" y="268" width="343" height="61" index="0">
+                                            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="16" y="268" width="343" height="61" index="0">
+                                              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="16" y="268" width="343" height="61" index="0">
+                                                <XCUIElementTypeTextField type="XCUIElementTypeTextField" name="Username, email or mobile number" label="Username, email or mobile number" enabled="true" visible="true" accessible="true" x="32" y="295" width="275" height="21" index="0" placeholderValue=""/>
+                                                <XCUIElementTypeButton type="XCUIElementTypeButton" name="Clear Username, email or mobile number text" label="Clear Username, email or mobile number text" enabled="true" visible="false" accessible="false" x="319" y="286" width="24" height="25" index="1">
+                                                  <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="319" y="286" width="24" height="25" index="0">
+                                                    <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="319" y="286" width="24" height="25" index="0">
+                                                      <XCUIElementTypeImage type="XCUIElementTypeImage" enabled="true" visible="false" accessible="false" x="319" y="286" width="24" height="25" index="0"/>
+                                                    </XCUIElementTypeOther>
+                                                  </XCUIElementTypeOther>
+                                                </XCUIElementTypeButton>
+                                              </XCUIElementTypeOther>
+                                            </XCUIElementTypeOther>
+                                          </XCUIElementTypeOther>
+                                        </XCUIElementTypeOther>
+                                        <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="16" y="340" width="343" height="61" index="2">
+                                          <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="16" y="340" width="343" height="61" index="0">
+                                            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="16" y="340" width="343" height="61" index="0">
+                                              <XCUIElementTypeSecureTextField type="XCUIElementTypeSecureTextField" name="Password" label="Password" enabled="true" visible="true" accessible="true" x="32" y="367" width="275" height="21" index="0" placeholderValue=""/>
+                                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="Show password" label="Show password" enabled="true" visible="false" accessible="false" x="319" y="358" width="24" height="25" index="1">
+                                                <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="319" y="358" width="24" height="25" index="0">
+                                                  <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="319" y="358" width="24" height="25" index="0">
+                                                    <XCUIElementTypeImage type="XCUIElementTypeImage" enabled="true" visible="false" accessible="false" x="319" y="358" width="24" height="25" index="0"/>
+                                                  </XCUIElementTypeOther>
+                                                </XCUIElementTypeOther>
+                                              </XCUIElementTypeButton>
+                                            </XCUIElementTypeOther>
+                                          </XCUIElementTypeOther>
+                                        </XCUIElementTypeOther>
+                                        <XCUIElementTypeButton type="XCUIElementTypeButton" name="Log in" label="Log in" enabled="true" visible="true" accessible="true" x="16" y="412" width="343" height="45" index="3"/>
+                                        <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="16" y="456" width="343" height="197" index="4">
+                                          <XCUIElementTypeOther type="XCUIElementTypeOther" name="Meta logo" label="Meta logo" enabled="true" visible="false" accessible="false" x="157" y="621" width="61" height="12" index="0">
+                                            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="157" y="621" width="61" height="12" index="0">
+                                              <XCUIElementTypeImage type="XCUIElementTypeImage" enabled="true" visible="false" accessible="false" x="157" y="621" width="61" height="12" index="0"/>
+                                            </XCUIElementTypeOther>
+                                          </XCUIElementTypeOther>
+                                        </XCUIElementTypeOther>
+                                      </XCUIElementTypeOther>
+                                    </XCUIElementTypeOther>
+                                  </XCUIElementTypeOther>
+                                </XCUIElementTypeOther>
+                              </XCUIElementTypeOther>
+                            </XCUIElementTypeOther>
+                          </XCUIElementTypeOther>
+                        </XCUIElementTypeOther>
+                      </XCUIElementTypeOther>
+                    </XCUIElementTypeOther>
+                  </XCUIElementTypeOther>
+                </XCUIElementTypeOther>
+              </XCUIElementTypeOther>
+              <XCUIElementTypeOther type="XCUIElementTypeOther" value="0%" name="Vertical scroll bar, 1 page" label="Vertical scroll bar, 1 page" enabled="true" visible="true" accessible="false" x="342" y="32" width="30" height="635" index="1"/>
+              <XCUIElementTypeOther type="XCUIElementTypeOther" value="0%" name="Horizontal scroll bar, 1 page" label="Horizontal scroll bar, 1 page" enabled="true" visible="true" accessible="false" x="0" y="634" width="375" height="30" index="2"/>
+            </XCUIElementTypeScrollView>
+          </XCUIElementTypeOther>
+        </XCUIElementTypeOther>
+      </XCUIElementTypeOther>
+    </XCUIElementTypeWindow>
+  </XCUIElementTypeApplication>
+</AppiumAUT>

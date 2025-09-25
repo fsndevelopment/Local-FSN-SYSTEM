@@ -21,6 +21,7 @@ class PostingTemplate(Base):
     captions_file_url = Column(String(500), nullable=True)
     photos_folder_url = Column(String(500), nullable=True)
     scrolling_minutes = Column(Integer, default=0)
+    posting_interval_minutes = Column(Integer, default=30)  # Default 30 minutes between posts
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
     def __repr__(self):

@@ -1,0 +1,52 @@
+[
+  {
+    "id": "1758539085224",
+    "device_id": "device-1758399156",
+    "username": "mitziisyours",
+    "container_number": "2",
+    "platform": "threads",
+    "account_phase": "posting"
+  },
+  {
+    "id": "1758823609312",
+    "device_id": "device-1758399156",
+    "username": "jacqub_s",
+    "container_number": "5",
+    "platform": "threads",
+    "account_phase": "posting"
+  },
+  {
+    "id": "1758537650306",
+    "device_id": "device-1758399156",
+    "username": "yourm1tzi",
+    "container_number": "1",
+    "platform": "threads",
+    "account_phase": "posting",
+    "notes": "Testing phase preservation - should keep posting phase"
+  },
+  {
+    "id": "1758829519760",
+    "device_id": "device-1758399156",
+    "username": "admin",
+    "container_number": "6",
+    "platform": "threads",
+    "account_phase": "posting"
+  },
+  {
+    "id": "1758830941618",
+    "device_id": "device-1758399156",
+    "username": "dasdasdas",
+    "container_number": "7",
+    "platform": "threads",
+    "account_phase": "posting"
+  },
+  {
+    "id": "1758836346231",
+    "device_id": "device-1758399156",
+    "username": "jacqub_sdfsd",
+    "container_number": "8",
+    "platform": "threads",
+    "notes": "Testing phase preservation during edit - should keep warmup phase",
+    "account_phase": "warmup"
+  }
+]

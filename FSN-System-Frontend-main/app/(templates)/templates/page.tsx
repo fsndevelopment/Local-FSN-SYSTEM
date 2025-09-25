@@ -18,6 +18,7 @@ import { HeroCard } from "@/components/hero-card"
 import { usePlatform } from "@/lib/platform"
 import { PlatformSwitch } from "@/components/platform-switch"
 import { GlobalSearchBar } from "@/components/search/global-search-bar"
+import { PlatformHeader } from "@/components/platform-header"
 import { TemplateExecutionDialog } from "@/components/template-execution-dialog"
 import { useDevices } from "@/lib/hooks/use-devices"
 import { useAccounts } from "@/lib/hooks/use-accounts"
@@ -46,10 +47,8 @@ export default function TemplatesPage() {
     const loadTemplates = async () => {
       try {
         const savedTemplates = await licenseAwareStorageService.getTemplates()
-        // Filter templates by current platform (show all if platform is 'all')
-        const filteredTemplates = platform === 'all' 
-          ? savedTemplates 
-          : savedTemplates.filter(t => t.platform === platform)
+        // Filter templates by current platform
+        const filteredTemplates = savedTemplates.filter(t => t.platform === platform)
         setTemplates(filteredTemplates)
         console.log('📱 TEMPLATES - Loaded templates:', {
           total: savedTemplates.length,
@@ -78,7 +77,8 @@ export default function TemplatesPage() {
     textPostsFileContent: "",
     followsPerDay: 0,
     likesPerDay: 0,
-    scrollingTimeMinutes: 0
+    scrollingTimeMinutes: 0,
+    postingIntervalMinutes: 0
   })
 
   // Load templates from license-aware storage on component mount
@@ -86,10 +86,18 @@ export default function TemplatesPage() {
     const loadTemplates = async () => {
       try {
         const savedTemplates = await licenseAwareStorageService.getTemplates()
-        // Filter templates by current platform (show all if platform is 'all')
-        const filteredTemplates = platform === 'all' 
-          ? savedTemplates 
-          : savedTemplates.filter((t: Template) => t.platform === platform)
+        console.log('🔍 DEBUG - Loaded templates from storage:', savedTemplates)
+        console.log('🔍 DEBUG - Template details:', savedTemplates.map(t => ({
+          id: t.id,
+          name: t.name,
+          platform: t.platform,
+          postingIntervalMinutes: (t as any).postingIntervalMinutes,
+          textPostsPerDay: t.textPostsPerDay
+        })))
+        
+        // Filter templates by current platform
+        const filteredTemplates = savedTemplates.filter((t: Template) => t.platform === platform)
+        console.log('🔍 DEBUG - Filtered templates for platform', platform, ':', filteredTemplates)
         setTemplates(filteredTemplates)
       } catch (error) {
         console.error('Failed to load templates:', error)
@@ -175,6 +183,11 @@ export default function TemplatesPage() {
       updatedAt: new Date().toISOString()
     }
     
+    // DEBUG: Log the template being created
+    console.log('🔍 DEBUG - Creating template with formData:', formData)
+    console.log('🔍 DEBUG - New template object:', newTemplate)
+    console.log('🔍 DEBUG - postingIntervalMinutes in newTemplate:', newTemplate.postingIntervalMinutes)
+    
     try {
       // Save to license-aware storage service
       await licenseAwareStorageService.addTemplate(newTemplate)
@@ -202,15 +215,16 @@ export default function TemplatesPage() {
       name: template.name,
       platform: template.platform,
       captionsFile: template.captionsFile || "",
-      captionsFileContent: "",
+      captionsFileContent: (template as any).captionsFileContent || "",
       photosPostsPerDay: template.photosPostsPerDay,
       photosFolder: template.photosFolder || "",
       textPostsPerDay: template.textPostsPerDay,
       textPostsFile: template.textPostsFile || "",
-      textPostsFileContent: "",
+      textPostsFileContent: (template as any).textPostsFileContent || "",
       followsPerDay: template.followsPerDay,
       likesPerDay: template.likesPerDay,
-      scrollingTimeMinutes: template.scrollingTimeMinutes
+      scrollingTimeMinutes: template.scrollingTimeMinutes || 0,
+      postingIntervalMinutes: (template as any).postingIntervalMinutes ?? 0
     })
     setIsEditDialogOpen(true)
   }
@@ -249,6 +263,8 @@ export default function TemplatesPage() {
   }
 
   const handleDeleteTemplate = async (id: string) => {
+    console.log('🗑️ TEMPLATES - Starting delete for template:', id)
+    
     try {
       // Delete from license-aware storage service
       await licenseAwareStorageService.deleteTemplate(id)
@@ -260,10 +276,31 @@ export default function TemplatesPage() {
       // Show success message
       setSuccessMessage("Template deleted successfully!")
       setShowSuccess(true)
+      console.log('✅ TEMPLATES - Template deleted successfully')
     } catch (error) {
-      console.error('Failed to delete template:', error)
-      setSuccessMessage("Failed to delete template. Please try again.")
+      console.error('❌ TEMPLATES - Failed to delete template:', error)
+      
+      // Provide more specific error messages
+      let errorMessage = "Failed to delete template. Please try again."
+      
+      if (error instanceof Error) {
+        if (error.message.includes('not found')) {
+          errorMessage = "Template not found. It may have already been deleted."
+        } else if (error.message.includes('API error')) {
+          errorMessage = "Server connection failed. Template deleted locally."
+        } else if (error.message.includes('license')) {
+          errorMessage = "License validation failed. Please check your license."
+        }
+      }
+      
+      setSuccessMessage(errorMessage)
       setShowSuccess(true)
+      
+      // If template was deleted locally but API failed, still update the UI
+      if (error instanceof Error && error.message.includes('API delete succeeded')) {
+        const updatedTemplates = templates.filter(t => t.id !== id)
+        setTemplates(updatedTemplates)
+      }
     }
   }
 
@@ -305,7 +342,8 @@ export default function TemplatesPage() {
       textPostsFileContent: "",
       followsPerDay: 0,
       likesPerDay: 0,
-      scrollingTimeMinutes: 0
+      scrollingTimeMinutes: 0,
+      postingIntervalMinutes: 0
     })
   }
 
@@ -320,6 +358,18 @@ export default function TemplatesPage() {
 
   const handleTemplateExecution = async (request: any) => {
     try {
+      // DEBUG: Log the selected template before processing
+      console.log('🔍 DEBUG - handleTemplateExecution called with request:', request)
+      console.log('🔍 DEBUG - selectedTemplate:', selectedTemplate)
+      console.log('🔍 DEBUG - selectedTemplate type:', typeof selectedTemplate)
+      console.log('🔍 DEBUG - selectedTemplate keys:', selectedTemplate ? Object.keys(selectedTemplate) : 'null')
+      
+      if (selectedTemplate) {
+        console.log('🔍 DEBUG - selectedTemplate.postingIntervalMinutes:', (selectedTemplate as any).postingIntervalMinutes)
+        console.log('🔍 DEBUG - selectedTemplate.textPostsPerDay:', selectedTemplate.textPostsPerDay)
+        console.log('🔍 DEBUG - selectedTemplate.platform:', selectedTemplate.platform)
+      }
+      
       // Include the actual template data in the request
       const templateExecutionRequest = {
         ...request,
@@ -330,20 +380,29 @@ export default function TemplatesPage() {
           settings: {
             textPostsPerDay: selectedTemplate?.textPostsPerDay || 0,
             textPostsFile: selectedTemplate?.textPostsFile || "",
-            textPostsFileContent: "", // Include xlsx file content
+            textPostsFileContent: selectedTemplate?.textPostsFileContent || "", // Include xlsx file content
             photosPostsPerDay: selectedTemplate?.photosPostsPerDay || 0,
             photosFolder: selectedTemplate?.photosFolder || "",
             captionsFile: selectedTemplate?.captionsFile || "",
-            captionsFileContent: "", // Include xlsx file content
+            captionsFileContent: selectedTemplate?.captionsFileContent || "", // Include xlsx file content
             followsPerDay: selectedTemplate?.followsPerDay || 0,
             likesPerDay: selectedTemplate?.likesPerDay || 0,
-            scrollingTimeMinutes: selectedTemplate?.scrollingTimeMinutes || 0
+            scrollingTimeMinutes: selectedTemplate?.scrollingTimeMinutes || 0,
+            postingIntervalMinutes: (selectedTemplate as any)?.postingIntervalMinutes ?? 0
           }
         }
       }
       
+      // DEBUG: Log what we're sending
+      console.log('🔍 DEBUG - Selected template:', selectedTemplate)
+      console.log('🔍 DEBUG - Template ID:', selectedTemplate?.id)
+      console.log('🔍 DEBUG - Template name:', selectedTemplate?.name)
+      console.log('🔍 DEBUG - postingIntervalMinutes from template:', (selectedTemplate as any)?.postingIntervalMinutes)
+      console.log('🔍 DEBUG - Template execution request:', templateExecutionRequest)
+      console.log('🔍 DEBUG - All templates available:', templates.map(t => ({ id: t.id, name: t.name, postingIntervalMinutes: (t as any).postingIntervalMinutes })))
+      
       // Call backend API to execute template
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/templates/${selectedTemplate?.id}/execute`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/devices/${request.device_id}/start`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -417,9 +476,9 @@ export default function TemplatesPage() {
   return (
     <LicenseBlocker action="access templates">
       <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
-        {/* Main Header Section - Dark Background */}
-        <div className="relative overflow-hidden bg-gradient-to-r from-black via-gray-900 to-black">
-          <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGRlZnM+CjxwYXR0ZXJuIGlkPSJncmlkIiB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHBhdHRlcm5Vbml0cz0idXNlclNwYWNlT25Vc2UiPgo8cGF0aCBkPSJNIDQwIDAgTCAwIDAgMCA0MCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJyZ2JhKDI1NSwyNTUsMjU1LDAuMDUpIiBzdHJva2Utd2lkdGg9IjEiLz4KPC9wYXR0ZXJuPgo8L2RlZnM+CjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9InVybCgjZ3JpZCkiLz4KPHN2Zz4K')] opacity-10"></div>
+        {/* Main Header Section - Platform Colors */}
+        <PlatformHeader>
+          <div className="absolute inset-0 opacity-10 bg-[length:40px_40px] bg-[image:url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGRlZnM+CjxwYXR0ZXJuIGlkPSJncmlkIiB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHBhdHRlcm5Vbml0cz0idXNlclNwYWNlT25Vc2UiPgo8cGF0aCBkPSJNIDQwIDAgTCAwIDAgMCA0MCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJyZ2JhKDI1NSwyNTUsMjU1LDAuMDUpIiBzdHJva2Rtd2lkdGg9IjEiLz4KPC9wYXR0ZXJuPgo8L2RlZnM+CjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9InVybCgjZ3JpZCkiLz4KPHN2Zz4K')]"></div>
           
           <div className="relative px-6 py-12">
             <div className="max-w-7xl mx-auto">
@@ -463,14 +522,15 @@ export default function TemplatesPage() {
                           Create Template
                         </Button>
                       </DialogTrigger>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
+          <DialogContent className="w-[60vw] max-w-[60vw] max-h-[80vh] flex flex-col sm:max-w-[60vw]">
+            <DialogHeader className="flex-shrink-0">
               <DialogTitle>Create New Template</DialogTitle>
               <DialogDescription>
                 Define daily limits, content types, and safety buffers for your automation templates.
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-6 py-4">
+            <div className="flex-1 overflow-y-auto px-6">
+              <div className="space-y-6 py-4">
               {/* Basic Information */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -553,6 +613,17 @@ export default function TemplatesPage() {
                     {formData.textPostsFile || "Select XLSX file"}
                   </Button>
                 </div>
+                <div className="mt-2">
+                  <Label htmlFor="postingIntervalMinutes">Posting Interval (minutes)</Label>
+                  <Input
+                    id="postingIntervalMinutes"
+                    type="number"
+                    min="0"
+                    value={formData.postingIntervalMinutes}
+                    onChange={(e) => setFormData({...formData, postingIntervalMinutes: parseInt(e.target.value) || 0})}
+                    placeholder="e.g., 5"
+                  />
+                </div>
               </div>
 
               {/* Follows and Likes per Day */}
@@ -606,8 +677,10 @@ export default function TemplatesPage() {
                 </div>
               </div>
 
+
+              </div>
             </div>
-            <DialogFooter>
+            <DialogFooter className="flex-shrink-0">
               <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
                 Cancel
               </Button>
@@ -637,7 +710,7 @@ export default function TemplatesPage() {
               </div>
             </div>
           </div>
-        </div>
+        </PlatformHeader>
 
         <div className="max-w-7xl mx-auto px-6 py-8">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -647,12 +720,10 @@ export default function TemplatesPage() {
                 <LayoutTemplate className="w-12 h-12 text-gray-400" />
               </div>
               <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                {platform === 'all' ? 'No Templates Found' : `No ${platform.charAt(0).toUpperCase() + platform.slice(1)} Templates`}
+{`No ${platform.charAt(0).toUpperCase() + platform.slice(1)} Templates`}
               </h3>
               <p className="text-gray-600 mb-6 max-w-md mx-auto">
-                {platform === 'all' 
-                  ? 'You don\'t have any templates yet. Create your first template to get started with automation.'
-                  : `You don't have any ${platform} templates yet. Create a new ${platform} template to get started.`
+{`You don't have any ${platform} templates yet. Create a new ${platform} template to get started.`
                 }
               </p>
               <Button 
@@ -953,6 +1024,17 @@ export default function TemplatesPage() {
                     <FolderOpen className="w-4 h-4" />
                   </Button>
                 </div>
+              </div>
+              <div className="mt-2">
+                <Label htmlFor="edit-postingIntervalMinutes">Posting Interval (minutes)</Label>
+                <Input
+                  id="edit-postingIntervalMinutes"
+                  type="number"
+                  min="0"
+                  placeholder="e.g., 30"
+                  value={formData.postingIntervalMinutes}
+                  onChange={(e) => setFormData({...formData, postingIntervalMinutes: parseInt(e.target.value) || 0})}
+                />
               </div>
             </div>
 

@@ -173,6 +173,20 @@ class JobExecutor:
                     await self._fail_job(db, job_id, "Account or device not available")
                     return
                 
+                # Notify WebSocket about account processing start
+                try:
+                    from .websocket_manager import websocket_service
+                    await websocket_service.notify_account_processing(
+                        device_id=str(device.id),
+                        username=account.username,
+                        account_id=str(account.id),
+                        current_step="Starting job execution",
+                        progress=0
+                    )
+                    logger.info(f"📡 WebSocket notification sent: Account {account.username} starting on device {device.id}")
+                except Exception as e:
+                    logger.error(f"Failed to send WebSocket notification: {e}")
+                
                 # Track execution timing
                 start_time = datetime.utcnow()
                 

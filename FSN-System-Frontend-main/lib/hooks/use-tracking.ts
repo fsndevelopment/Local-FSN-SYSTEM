@@ -38,14 +38,29 @@ export function useFollowerTracking() {
   return useQuery({
     queryKey: ['tracking', 'followers'],
     queryFn: async (): Promise<FollowerTrackingResponse> => {
+      console.log('📡 TRACKING API - Fetching follower data from:', `${API_BASE_URL}/api/v1/tracking/followers`)
+      
       const response = await fetch(`${API_BASE_URL}/api/v1/tracking/followers`)
+      
+      console.log('📊 TRACKING API - Response status:', response.status, response.ok)
+      
       if (!response.ok) {
-        throw new Error('Failed to fetch tracking data')
+        console.warn('⚠️ TRACKING API - API not available, returning empty data')
+        // Return empty data instead of throwing error
+        return {
+          tracking_data: [],
+          total: 0
+        }
       }
-      return response.json()
+      
+      const data = await response.json()
+      console.log('📊 TRACKING API - Received data:', data)
+      
+      return data
     },
     staleTime: 30 * 1000, // 30 seconds
     refetchInterval: 60 * 1000, // Refetch every minute
+    retry: false, // Don't retry failed requests
   })
 }
 

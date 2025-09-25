@@ -25,9 +25,10 @@ interface AddAccountDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onAccountAdded?: () => void
+  editAccount?: LocalAccount | null
 }
 
-export function AddAccountDialog({ open, onOpenChange, onAccountAdded }: AddAccountDialogProps) {
+export function AddAccountDialog({ open, onOpenChange, onAccountAdded, editAccount }: AddAccountDialogProps) {
   const [formData, setFormData] = useState({
     platform: "",
     username: "",
@@ -38,7 +39,8 @@ export function AddAccountDialog({ open, onOpenChange, onAccountAdded }: AddAcco
     model: "",
     device: "",
     notes: "",
-    container_number: ""
+    container_number: "",
+    phase: "posting" as 'warmup' | 'posting'
   })
   const [showNewModelInput, setShowNewModelInput] = useState(false)
   const [newModelName, setNewModelName] = useState("")
@@ -54,6 +56,41 @@ export function AddAccountDialog({ open, onOpenChange, onAccountAdded }: AddAcco
   // API hooks
   const { data: apiDevicesResponse } = useDevices()
 
+  // Handle edit mode - run after data loading
+  useEffect(() => {
+    if (editAccount && open) {
+      console.log('🔄 EDIT MODE - Loading account data:', editAccount)
+      console.log('🔄 EDIT MODE - Account fields:', {
+        platform: editAccount.platform,
+        instagram_username: editAccount.instagram_username,
+        threads_username: editAccount.threads_username,
+        authType: editAccount.authType,
+        email: editAccount.email,
+        device: editAccount.device,
+        model: editAccount.model
+      })
+      
+      setFormData({
+        platform: editAccount.platform || "",
+        username: editAccount.instagram_username || editAccount.threads_username || "",
+        authType: editAccount.authType || "email",
+        email: editAccount.email || "",
+        twoFactorCode: editAccount.twoFactorCode || "",
+        password: editAccount.password || "",
+        model: editAccount.model || "",
+        device: editAccount.device || "",
+        notes: editAccount.notes || "",
+        container_number: editAccount.container_number || ""
+      })
+      
+      console.log('🔄 EDIT MODE - Form data set')
+    } else if (!editAccount && open) {
+      // Reset form for new account
+      console.log('🆕 NEW ACCOUNT MODE - Resetting form')
+      resetForm()
+    }
+  }, [editAccount, open, models, devices]) // Include models and devices to run after they're loaded
+
   // Reset form
   const resetForm = () => {
     setFormData({
@@ -66,7 +103,8 @@ export function AddAccountDialog({ open, onOpenChange, onAccountAdded }: AddAcco
       model: "",
       device: "",
       notes: "",
-      container_number: ""
+      container_number: "",
+      phase: "posting"
     })
     setShowNewModelInput(false)
     setNewModelName("")
@@ -77,9 +115,12 @@ export function AddAccountDialog({ open, onOpenChange, onAccountAdded }: AddAcco
   useEffect(() => {
     if (open) {
       loadData()
-      resetForm()
+      // Only reset form if not in edit mode
+      if (!editAccount) {
+        resetForm()
+      }
     }
-  }, [open, apiDevicesResponse])
+  }, [open, apiDevicesResponse, editAccount])
 
   const loadData = async () => {
     try {
@@ -174,13 +215,13 @@ export function AddAccountDialog({ open, onOpenChange, onAccountAdded }: AddAcco
 
       // Create account data
       const accountData: LocalAccount = {
-        id: Date.now().toString(),
+        id: editAccount ? editAccount.id : Date.now().toString(), // Use existing ID for edit, new ID for add
         platform: formData.platform as "instagram" | "threads" | "both",
         instagram_username: formData.platform === "instagram" || formData.platform === "both" ? formData.username : undefined,
         threads_username: formData.platform === "threads" || formData.platform === "both" ? formData.username : undefined,
-        status: "active",
-        warmup_phase: "phase_1",
-        followers_count: null,
+        status: editAccount ? editAccount.status : "active", // Preserve status for edit
+        warmup_phase: editAccount ? editAccount.warmup_phase : "phase_1", // Preserve warmup phase for edit
+        followers_count: editAccount ? editAccount.followers_count : null,
         model: formData.model,
         device: formData.device,
         notes: formData.notes,
@@ -189,24 +230,80 @@ export function AddAccountDialog({ open, onOpenChange, onAccountAdded }: AddAcco
         twoFactorCode: formData.twoFactorCode || undefined,
         password: formData.password || undefined,
         container_number: formData.container_number || undefined,
-        created_at: new Date().toISOString(),
+        account_phase: formData.phase, // Include the selected phase
+        created_at: editAccount ? editAccount.created_at : new Date().toISOString(), // Preserve created_at for edit
         updated_at: new Date().toISOString()
       }
 
-      // Save account
-      await licenseAwareStorageService.addAccount(accountData)
+      // Debug: Log what we're about to save
+      console.log('💾 ACCOUNT SAVE - Form data:', formData)
+      console.log('💾 ACCOUNT SAVE - Account data to save:', accountData)
+      console.log('💾 ACCOUNT SAVE - Edit mode:', !!editAccount)
+      
+      // Save account (add or update)
+      if (editAccount) {
+        console.log('📝 UPDATING ACCOUNT:', editAccount.id)
+        await licenseAwareStorageService.updateAccount(editAccount.id, accountData)
+        // Also save to backend JSON file
+        try {
+          await fetch('http://localhost:8000/api/v1/accounts', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              id: accountData.id,
+              device_id: String(accountData.device_id || accountData.device || ''),
+              username: accountData.threads_username || accountData.instagram_username || '',
+              container_number: String(accountData.container_number || ''),
+              platform: accountData.platform || 'threads',
+            }),
+          })
+        } catch (e) {
+          console.warn('Failed to sync account to backend:', e)
+        }
+        setSuccessMessage("Account updated successfully!")
+      } else {
+        console.log('➕ ADDING NEW ACCOUNT')
+        await licenseAwareStorageService.addAccount(accountData)
+        // Also save to backend JSON file
+        try {
+          await fetch('http://localhost:8000/api/v1/accounts', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              id: accountData.id,
+              device_id: String(accountData.device_id || accountData.device || ''),
+              username: accountData.threads_username || accountData.instagram_username || '',
+              container_number: String(accountData.container_number || ''),
+              platform: accountData.platform || 'threads',
+            }),
+          })
+        } catch (e) {
+          console.warn('Failed to sync account to backend:', e)
+        }
+        setSuccessMessage("Account added successfully!")
+      }
       
       // Assign account to device if selected
       if (formData.device) {
         licenseAwareStorageService.assignDeviceToAccount(accountData.id, formData.device)
       }
 
-      // Show success message
-      setSuccessMessage("Account added successfully!")
+      // Save selected phase
+      licenseAwareStorageService.setAccountPhase(accountData.id, formData.phase)
+
       setShowSuccess(true)
       
-      // Close dialog
-      onOpenChange(false)
+      // Reset form for new accounts only
+      if (!editAccount) {
+        resetForm()
+      }
+      
+      // Close dialog after delay
+      setTimeout(() => {
+        setShowSuccess(false)
+        onOpenChange(false)
+        onAccountAdded?.()
+      }, 1500)
       
       // Notify parent component
       if (onAccountAdded) {
@@ -234,8 +331,10 @@ export function AddAccountDialog({ open, onOpenChange, onAccountAdded }: AddAcco
                 <User className="w-5 h-5 text-white" />
               </div>
               <div>
-                <div className="text-gray-900">Add New Account</div>
-                <div className="text-xs font-normal text-gray-500 mt-0.5">Connect your social media account to the automation system</div>
+                <div className="text-gray-900">{editAccount ? 'Edit Account' : 'Add New Account'}</div>
+                <div className="text-xs font-normal text-gray-500 mt-0.5">
+                  {editAccount ? 'Update your account information' : 'Connect your social media account to the automation system'}
+                </div>
               </div>
             </DialogTitle>
           </DialogHeader>
@@ -497,6 +596,21 @@ export function AddAccountDialog({ open, onOpenChange, onAccountAdded }: AddAcco
                   </Select>
                 </div>
 
+            <div className="space-y-1">
+              <Label htmlFor="phase" className="text-xs font-semibold text-gray-700">
+                Account Phase
+              </Label>
+              <Select value={formData.phase} onValueChange={(value) => handleInputChange('phase', value)}>
+                <SelectTrigger className="h-9 rounded-md border-gray-200 focus:border-green-500 focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 text-xs">
+                  <SelectValue placeholder="Select phase" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="posting">Posting</SelectItem>
+                  <SelectItem value="warmup">Warmup</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
                 <div className="space-y-1">
                   <Label htmlFor="notes" className="text-xs font-semibold text-gray-700">
                     Notes
@@ -543,10 +657,10 @@ export function AddAccountDialog({ open, onOpenChange, onAccountAdded }: AddAcco
               {isLoading ? (
                 <div className="flex items-center space-x-1">
                   <RefreshCw className="w-3 h-3 animate-spin" />
-                  <span>Adding...</span>
+                  <span>{editAccount ? 'Updating...' : 'Adding...'}</span>
                 </div>
               ) : (
-                "Add Account"
+                editAccount ? "Update Account" : "Add Account"
               )}
             </Button>
           </DialogFooter>

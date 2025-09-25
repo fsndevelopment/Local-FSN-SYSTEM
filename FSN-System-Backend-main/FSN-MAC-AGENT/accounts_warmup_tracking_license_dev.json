@@ -1,0 +1,22 @@
+{
+  "license_dev": {
+    "account_1758537650306": {
+      "warmup_completed_today": false,
+      "current_day": 1,
+      "last_warmup_date": null,
+      "warmup_stats": {},
+      "next_warmup_day": 1,
+      "warmup_template_id": "1758730541887",
+      "account_phase": "warmup"
+    },
+    "account_1758539085224": {
+      "warmup_completed_today": false,
+      "current_day": 1,
+      "last_warmup_date": null,
+      "warmup_stats": {},
+      "next_warmup_day": 1,
+      "warmup_template_id": null,
+      "account_phase": "warmup"
+    }
+  }
+}

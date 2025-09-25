@@ -72,6 +72,7 @@ export interface LocalTemplate {
   followsPerDay: number
   likesPerDay: number
   scrollingTimeMinutes: number // Scrolling time in minutes
+  postingIntervalMinutes: number // Posting interval in minutes
   createdAt: string
   updatedAt: string
 }

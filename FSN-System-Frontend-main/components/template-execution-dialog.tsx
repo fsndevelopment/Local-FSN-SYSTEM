@@ -23,7 +23,7 @@ interface TemplateExecutionDialogProps {
 }
 
 interface TemplateExecutionRequest {
-  device_id: number
+  device_id: string
   account_ids: number[]
   execution_mode: string
   start_delay: number
@@ -75,7 +75,7 @@ export function TemplateExecutionDialog({
     setIsExecuting(true)
     
     const request: TemplateExecutionRequest = {
-      device_id: parseInt(selectedDeviceId),
+      device_id: selectedDeviceId,
       account_ids: selectedAccountIds,
       execution_mode: executionMode,
       start_delay: startDelay

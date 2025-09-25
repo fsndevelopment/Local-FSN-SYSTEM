@@ -22,7 +22,9 @@ import { usePlatform } from "@/lib/platform"
 import { LicenseBlocker } from "@/components/license-blocker"
 import { PlatformSwitch } from "@/components/platform-switch"
 import { GlobalSearchBar } from "@/components/search/global-search-bar"
+import { PlatformHeader } from "@/components/platform-header"
 import { AddDeviceDialog } from "@/components/add-device-dialog"
+import { FeasibilityIndicator } from "@/components/feasibility-indicator"
 
 // Model interface
 interface Model {
@@ -45,6 +47,7 @@ export default function DevicesPage() {
   const [devicePhases, setDevicePhases] = useState<Record<string, 'posting' | 'warmup'>>({})
   const [deviceWarmupDays, setDeviceWarmupDays] = useState<Record<string, number>>({})
   const [models, setModels] = useState<Model[]>([])
+  const [accounts, setAccounts] = useState<any[]>([])
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
   const [deletedDevices, setDeletedDevices] = useState<Set<string>>(new Set())
   const [isAddDeviceDialogOpen, setIsAddDeviceDialogOpen] = useState(false)
@@ -87,10 +90,8 @@ export default function DevicesPage() {
         // Load warmup templates
         const savedWarmupTemplates = await licenseAwareStorageService.getWarmupTemplates()
         console.log('🔥 DEVICES DEBUG - Loaded warmup templates:', savedWarmupTemplates)
-        // Filter warmup templates by current platform (show all if platform is 'all')
-        const filteredWarmupTemplates = platform === 'all' 
-          ? savedWarmupTemplates 
-          : savedWarmupTemplates.filter((t: LocalWarmupTemplate) => t.platform === platform)
+        // Filter warmup templates by current platform
+        const filteredWarmupTemplates = savedWarmupTemplates.filter((t: LocalWarmupTemplate) => t.platform === platform)
         console.log('🔥 DEVICES DEBUG - Filtered warmup templates for platform:', platform, filteredWarmupTemplates)
         setAvailableWarmupTemplates(filteredWarmupTemplates)
         
@@ -104,17 +105,28 @@ export default function DevicesPage() {
     loadTemplates()
   }, [platform])
 
-  // Load device template assignments from license-aware storage
+  // Load device template assignments and accounts from license-aware storage
   useEffect(() => {
-    const savedDeviceTemplates = licenseAwareStorageService.getDeviceTemplates()
-    const savedDeviceWarmupTemplates = (licenseAwareStorageService as any).getItem?.('deviceWarmupTemplates') || {}
-    const savedDevicePhases = (licenseAwareStorageService as any).getItem?.('devicePhases') || {}
-    const savedDeviceWarmupDays = (licenseAwareStorageService as any).getItem?.('deviceWarmupDays') || {}
+    const loadDeviceData = async () => {
+      try {
+        const savedDeviceTemplates = licenseAwareStorageService.getDeviceTemplates()
+        const savedDeviceWarmupTemplates = (licenseAwareStorageService as any).getItem?.('deviceWarmupTemplates') || {}
+        const savedDevicePhases = (licenseAwareStorageService as any).getItem?.('devicePhases') || {}
+        const savedDeviceWarmupDays = (licenseAwareStorageService as any).getItem?.('deviceWarmupDays') || {}
+        const savedAccounts = await licenseAwareStorageService.getAccounts()
+        
+        setDeviceTemplates(savedDeviceTemplates || {})
+        setDeviceWarmupTemplates(savedDeviceWarmupTemplates || {})
+        setDevicePhases(savedDevicePhases || {})
+        setDeviceWarmupDays(savedDeviceWarmupDays || {})
+        setAccounts(savedAccounts || [])
+      } catch (error) {
+        console.error('Failed to load device data:', error)
+        setAccounts([])
+      }
+    }
     
-    setDeviceTemplates(savedDeviceTemplates || {})
-    setDeviceWarmupTemplates(savedDeviceWarmupTemplates || {})
-    setDevicePhases(savedDevicePhases || {})
-    setDeviceWarmupDays(savedDeviceWarmupDays || {})
+    loadDeviceData()
   }, [])
 
   // Load saved devices from license-aware storage service
@@ -496,38 +508,55 @@ export default function DevicesPage() {
           )}
           
           {/* Compact Configuration */}
-          <div className="p-3 bg-gray-50 rounded-lg space-y-3">
-            {/* Phase Selection */}
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">Phase:</span>
-              <Select 
-                value={devicePhases[device.id.toString()] || "posting"} 
-                onValueChange={(value: 'posting' | 'warmup') => handlePhaseChange(device.id.toString(), value)}
-              >
-                <SelectTrigger className="w-32 h-8 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="posting">
-                    <div className="flex items-center space-x-2">
-                      <span>📝 Posting</span>
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="warmup">
-                    <div className="flex items-center space-x-2">
-                      <span>🔥 Warmup</span>
-                    </div>
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            
-            {/* Template Selection Based on Phase */}
-            {devicePhases[device.id.toString()] === "warmup" ? (
+          <div className="p-3 bg-gray-50 rounded-lg">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Templates column */}
               <div className="space-y-2">
-                {/* Warmup Template */}
+                <div className="text-xs uppercase tracking-wide text-muted-foreground">Templates</div>
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">Template:</span>
+                  <span className="text-sm font-medium">Posting Template</span>
+                  <Select 
+                    value={selectedTemplateId || "none"} 
+                    onValueChange={(value) => handleTemplateChange(device.id.toString(), value)}
+                  >
+                    <SelectTrigger className="w-40 h-8 text-xs">
+                      <SelectValue placeholder="Select posting" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No Template</SelectItem>
+                      {availableTemplates.map((template) => (
+                        <SelectItem key={template.id} value={template.id}>
+                          <div className="flex items-center justify-between w-full">
+                            <span>{template.name}</span>
+                            <span className="text-xs text-muted-foreground ml-2">
+                              {template.photosPostsPerDay + template.textPostsPerDay + template.likesPerDay + template.followsPerDay} actions/day
+                            </span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {selectedTemplateId && selectedTemplateId !== "none" && (
+                  <div className="p-2 bg-white rounded-lg border">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium text-gray-700">Schedule Feasibility</span>
+                      <FeasibilityIndicator
+                        deviceId={device.id.toString()}
+                        accounts={accounts.filter(account => account.device === device.id.toString())}
+                        template={availableTemplates.find(t => t.id === selectedTemplateId)}
+                        showDetails={true}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Warmup column */}
+              <div className="space-y-2">
+                <div className="text-xs uppercase tracking-wide text-muted-foreground">Warmup</div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">Warmup Template</span>
                   <Select 
                     value={deviceWarmupTemplates[device.id.toString()] || "none"} 
                     onValueChange={(value) => handleWarmupTemplateChange(device.id.toString(), value)}
@@ -550,11 +579,9 @@ export default function DevicesPage() {
                     </SelectContent>
                   </Select>
                 </div>
-                
-                {/* Warmup Day Selection */}
                 {deviceWarmupTemplates[device.id.toString()] && deviceWarmupTemplates[device.id.toString()] !== "none" && (
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">Current Day:</span>
+                    <span className="text-sm font-medium">Current Day</span>
                     <Select 
                       value={deviceWarmupDays[device.id.toString()]?.toString() || "1"} 
                       onValueChange={(value) => handleWarmupDayChange(device.id.toString(), parseInt(value))}
@@ -567,7 +594,6 @@ export default function DevicesPage() {
                           const selectedWarmupTemplateId = deviceWarmupTemplates[device.id.toString()]
                           const selectedWarmupTemplate = availableWarmupTemplates.find(t => t.id === selectedWarmupTemplateId)
                           const dayCount = selectedWarmupTemplate?.days?.length || 1
-                          
                           return Array.from({ length: dayCount }, (_, i) => (
                             <SelectItem key={i + 1} value={(i + 1).toString()}>
                               Day {i + 1}
@@ -579,33 +605,7 @@ export default function DevicesPage() {
                   </div>
                 )}
               </div>
-            ) : (
-              /* Posting Template */
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Template:</span>
-                <Select 
-                  value={selectedTemplateId || "none"} 
-                  onValueChange={(value) => handleTemplateChange(device.id.toString(), value)}
-                >
-                  <SelectTrigger className="w-40 h-8 text-xs">
-                    <SelectValue placeholder="Select posting" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">No Template</SelectItem>
-                    {availableTemplates.map((template) => (
-                      <SelectItem key={template.id} value={template.id}>
-                        <div className="flex items-center justify-between w-full">
-                          <span>{template.name}</span>
-                          <span className="text-xs text-muted-foreground ml-2">
-                            {template.photosPostsPerDay + template.textPostsPerDay + template.likesPerDay + template.followsPerDay} actions/day
-                          </span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
+            </div>
           </div>
         </div>
       )
@@ -647,9 +647,9 @@ export default function DevicesPage() {
   return (
     <LicenseBlocker action="access device management">
       <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
-        {/* Main Header Section - Dark Background */}
-        <div className="relative overflow-hidden bg-gradient-to-r from-black via-gray-900 to-black">
-          <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGRlZnM+CjxwYXR0ZXJuIGlkPSJncmlkIiB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHBhdHRlcm5Vbml0cz0idXNlclNwYWNlT25Vc2UiPgo8cGF0aCBkPSJNIDQwIDAgTCAwIDAgMCA0MCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJyZ2JhKDI1NSwyNTUsMjU1LDAuMDUpIiBzdHJva2Utd2lkdGg9IjEiLz4KPC9wYXR0ZXJuPgo8L2RlZnM+CjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9InVybCgjZ3JpZCkiLz4KPHN2Zz4K')] opacity-10"></div>
+        {/* Main Header Section - Platform Colors */}
+        <PlatformHeader>
+          <div className="absolute inset-0 opacity-10 bg-[length:40px_40px] bg-[image:url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGRlZnM+CjxwYXR0ZXJuIGlkPSJncmlkIiB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHBhdHRlcm5Vbml0cz0idXNlclNwYWNlT25Vc2UiPgo8cGF0aCBkPSJNIDQwIDAgTCAwIDAgMCA0MCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJyZ2JhKDI1NSwyNTUsMjU1LDAuMDUpIiBzdHJva2Utd2lkdGg9IjEiLz4KPC9wYXR0ZXJuPgo8L2RlZnM+CjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9InVybCgjZ3JpZCkiLz4KPHN2Zz4K')]"></div>
           
           <div className="relative px-6 py-12">
             <div className="max-w-7xl mx-auto">
@@ -726,7 +726,7 @@ export default function DevicesPage() {
               </div>
             </div>
           </div>
-        </div>
+        </PlatformHeader>
 
       <div className="max-w-7xl mx-auto px-6 py-8">
         <div className="grid grid-cols-1 gap-8">

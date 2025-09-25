@@ -240,6 +240,22 @@ class WebSocketService:
             }
         )
     
+    async def notify_account_processing(self, device_id: str, username: str, account_id: str, current_step: str, progress: int = 0):
+        """Notify about account processing updates with username"""
+        message = {
+            "type": "job_update",  # Use the type frontend expects
+            "data": {
+                "device_id": device_id,
+                "username": username,
+                "account_id": account_id,
+                "current_step": current_step,
+                "progress": progress,
+                "timestamp": datetime.now().isoformat()
+            },
+            "timestamp": datetime.now().isoformat()
+        }
+        await self.connection_manager.broadcast(message)
+    
     async def notify_system_event(self, event_type: str, message: str, data: Optional[Dict[str, Any]] = None):
         """Notify about system events"""
         await self.connection_manager.broadcast_system_notification(

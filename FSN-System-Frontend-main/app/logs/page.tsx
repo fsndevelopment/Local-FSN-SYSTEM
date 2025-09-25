@@ -2,72 +2,114 @@
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { FileText, AlertTriangle, CheckCircle, XCircle, Clock, RefreshCw, Download, Filter } from "lucide-react"
-import { HeroCard } from "@/components/hero-card"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { FileText, AlertTriangle, CheckCircle, XCircle, Clock, RefreshCw, Download, Calendar as CalendarIcon, Smartphone } from "lucide-react"
 import { LicenseBlocker } from "@/components/license-blocker"
 import { PlatformSwitch } from "@/components/platform-switch"
 import { GlobalSearchBar } from "@/components/search/global-search-bar"
+import { PlatformHeader } from "@/components/platform-header"
+import { CalendarPopup } from "@/components/calendar-popup"
+import { useDevices } from "@/lib/hooks/use-devices"
+import { licenseAwareStorageService } from "@/lib/services/license-aware-storage-service"
 
-// Mock log data - TODO: Replace with real API data
-const logs = [
-  {
-    id: "1",
-    timestamp: "2024-01-15 14:32:15",
-    level: "error" as const,
-    source: "Device Manager",
-    message: "Failed to connect to iPhone 15 Pro - Device 1",
-    details: "Connection timeout after 30 seconds. Check USB connection and device trust settings.",
-  },
-  {
-    id: "2", 
-    timestamp: "2024-01-15 14:30:22",
-    level: "info" as const,
-    source: "Automation Engine",
-    message: "Started automation job for @lifestyle_blogger",
-    details: "Template: Daily Posting, Device: iPhone 15 Pro - Device 1",
-  },
-  {
-    id: "3",
-    timestamp: "2024-01-15 14:28:45",
-    level: "warning" as const,
-    source: "Account Manager",
-    message: "Account @fitness_guru requires verification",
-    details: "Instagram checkpoint detected. Manual verification may be required.",
-  },
-  {
-    id: "4",
-    timestamp: "2024-01-15 14:25:12",
-    level: "success" as const,
-    source: "Post Manager",
-    message: "Successfully posted content for @travel_enthusiast",
-    details: "Post ID: 3142857264, Engagement: 45 likes, 12 comments",
-  },
-  {
-    id: "5",
-    timestamp: "2024-01-15 14:20:33",
-    level: "info" as const,
-    source: "System",
-    message: "Backend server started successfully",
-    details: "API server listening on port 8000, WebSocket server on port 8001",
-  }
-]
-
-const errors = logs.filter(log => log.level === "error")
+// Log entry interface
+interface LogEntry {
+  id: string
+  timestamp: string
+  level: "error" | "warning" | "success" | "info"
+  source: string
+  message: string
+  details: string
+  device_id?: string
+  device_name?: string
+}
 
 export default function LogsPage() {
-  const [selectedTab, setSelectedTab] = useState("all")
-  const [filteredLogs, setFilteredLogs] = useState(logs)
+  // State management
+  const [selectedDevice, setSelectedDevice] = useState<string>("all")
+  const [selectedDate, setSelectedDate] = useState<Date | null>(new Date())
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false)
+  const [logs, setLogs] = useState<LogEntry[]>([])
+  const [filteredLogs, setFilteredLogs] = useState<LogEntry[]>([])
+  const [isLoading, setIsLoading] = useState(false)
 
+  // Load devices
+  const { data: apiDevicesResponse } = useDevices()
+  const [allDevices, setAllDevices] = useState<any[]>([])
+
+  // Load devices from both API and local storage
   useEffect(() => {
-    if (selectedTab === "all") {
-      setFilteredLogs(logs)
-    } else {
-      setFilteredLogs(logs.filter(log => log.level === selectedTab))
+    const loadDevices = () => {
+      try {
+        const savedDevices = licenseAwareStorageService.getDevices()
+        const apiDevices = Array.isArray(apiDevicesResponse) 
+          ? apiDevicesResponse 
+          : apiDevicesResponse?.devices || []
+        
+        const combined = [...apiDevices, ...savedDevices]
+        const unique = combined.filter((device, index, self) => 
+          index === self.findIndex(d => d.id === device.id)
+        )
+        
+        setAllDevices(unique)
+      } catch (error) {
+        console.error('Failed to load devices:', error)
+        setAllDevices([])
+      }
     }
-  }, [selectedTab])
+    
+    loadDevices()
+  }, [apiDevicesResponse])
+
+  // Load logs based on selected device and date
+  const loadLogs = async () => {
+    setIsLoading(true)
+    try {
+      const dateString = selectedDate?.toISOString().split('T')[0] // YYYY-MM-DD format
+      const params = new URLSearchParams()
+      
+      if (selectedDevice !== "all") {
+        params.append('device_id', selectedDevice)
+      }
+      if (dateString) {
+        params.append('date', dateString)
+      }
+      
+      console.log('Loading logs with params:', params.toString())
+      
+      // Call the backend API for logs
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/logs?${params.toString()}`)
+      
+      if (response.ok) {
+        const data = await response.json()
+        const logEntries: LogEntry[] = data.logs || []
+        setLogs(logEntries)
+        setFilteredLogs(logEntries)
+        console.log('Loaded logs:', logEntries.length)
+      } else {
+        console.warn('Failed to fetch logs:', response.status)
+        setLogs([])
+        setFilteredLogs([])
+      }
+    } catch (error) {
+      console.error('Failed to load logs:', error)
+      // For development, show a sample message when API is not available
+      console.log('API not available, showing empty state')
+      setLogs([])
+      setFilteredLogs([])
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // Load logs when device or date changes
+  useEffect(() => {
+    if (selectedDevice && selectedDate) {
+      loadLogs()
+    }
+  }, [selectedDevice, selectedDate])
 
   const getLogIcon = (level: string) => {
     switch (level) {
@@ -99,9 +141,9 @@ export default function LogsPage() {
 
   const children = (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
-      {/* Main Header Section - Dark Background */}
-      <div className="relative overflow-hidden bg-gradient-to-r from-black via-gray-900 to-black">
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGRlZnM+CjxwYXR0ZXJuIGlkPSJncmlkIiB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHBhdHRlcm5Vbml0cz0idXNlclNwYWNlT25Vc2UiPgo8cGF0aCBkPSJNIDQwIDAgTCAwIDAgMCA0MCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJyZ2JhKDI1NSwyNTUsMjU1LDAuMDUpIiBzdHJva2Utd2lkdGg9IjEiLz4KPC9wYXR0ZXJuPgo8L2RlZnM+CjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9InVybCgjZ3JpZCkiLz4KPHN2Zz4K')] opacity-10"></div>
+      {/* Main Header Section - Platform Colors */}
+      <PlatformHeader>
+        <div className="absolute inset-0 opacity-10 bg-[length:40px_40px] bg-[image:url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGRlZnM+CjxwYXR0ZXJuIGlkPSJncmlkIiB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHBhdHRlcm5Vbml0cz0idXNlclNwYWNlT25Vc2UiPgo8cGF0aCBkPSJNIDQwIDAgTCAwIDAgMCA0MCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJyZ2JhKDI1NSwyNTUsMjU1LDAuMDUpIiBzdHJva2Utd2lkdGg9IjEiLz4KPC9wYXR0ZXJuPgo8L2RlZnM+CjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9InVybCgjZ3JpZCkiLz4KPHN2Zz4K')]"></div>
         
         <div className="relative px-6 py-12">
           <div className="max-w-7xl mx-auto">
@@ -164,137 +206,188 @@ export default function LogsPage() {
             </div>
           </div>
         </div>
-      </div>
+      </PlatformHeader>
 
       <div className="max-w-7xl mx-auto px-6 py-8 space-y-8">
-        {/* Enhanced Summary Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <div className="group relative overflow-hidden bg-white rounded-3xl shadow-lg hover:shadow-2xl transition-all duration-500 border border-gray-100">
-            <div className="absolute inset-0 bg-gradient-to-br from-red-50 to-rose-50 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-            <div className="relative p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className="w-12 h-12 bg-red-100 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                  <XCircle className="w-6 h-6 text-red-600" />
-                </div>
-                <div className="text-3xl font-bold text-red-600">{logs.filter(l => l.level === 'error').length}</div>
+        {/* Filter Controls */}
+        <div className="bg-white rounded-3xl shadow-lg border border-gray-100 p-8">
+          <div className="flex items-center justify-center">
+            <div className="flex items-center space-x-12">
+              {/* Device Selection */}
+              <div className="space-y-3">
+                <label className="text-sm font-semibold text-gray-700 block text-center">Device</label>
+                <Select value={selectedDevice} onValueChange={setSelectedDevice}>
+                  <SelectTrigger className="w-64 h-14 rounded-xl border-gray-200 focus:border-black focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 text-sm px-4 min-h-[56px]">
+                    <SelectValue placeholder="Select device" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">
+                      <div className="flex items-center space-x-3 py-1">
+                        <div className="w-3 h-3 bg-gray-400 rounded-full" />
+                        <span>All Devices</span>
+                      </div>
+                    </SelectItem>
+                    {allDevices.map((device) => (
+                      <SelectItem key={device.id} value={device.id.toString()}>
+                        <div className="flex items-center space-x-3 py-1">
+                          <Smartphone className="w-4 h-4" />
+                          <span>{device.name}</span>
+                          <div className={`w-3 h-3 rounded-full ${
+                            device.status === 'connected' ? 'bg-green-500' : 'bg-gray-400'
+                          }`} />
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-              <div className="space-y-1">
-                <div className="font-semibold text-gray-900">Errors</div>
-                <div className="text-sm text-gray-500">Critical issues</div>
-              </div>
-            </div>
-          </div>
 
-          <div className="group relative overflow-hidden bg-white rounded-3xl shadow-lg hover:shadow-2xl transition-all duration-500 border border-gray-100">
-            <div className="absolute inset-0 bg-gradient-to-br from-yellow-50 to-amber-50 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-            <div className="relative p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className="w-12 h-12 bg-yellow-100 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                  <AlertTriangle className="w-6 h-6 text-yellow-600" />
-                </div>
-                <div className="text-3xl font-bold text-yellow-600">{logs.filter(l => l.level === 'warning').length}</div>
+              {/* Date Selection */}
+              <div className="space-y-3">
+                <label className="text-sm font-semibold text-gray-700 block text-center">Date</label>
+                <Button
+                  variant="outline"
+                  onClick={() => setIsCalendarOpen(true)}
+                  className="w-64 h-14 rounded-xl border-gray-200 hover:border-gray-300 text-sm justify-start px-4"
+                >
+                  <CalendarIcon className="w-5 h-5 mr-3" />
+                  {selectedDate ? selectedDate.toLocaleDateString() : "Select date"}
+                </Button>
               </div>
-              <div className="space-y-1">
-                <div className="font-semibold text-gray-900">Warnings</div>
-                <div className="text-sm text-gray-500">Attention needed</div>
-              </div>
-            </div>
-          </div>
 
-          <div className="group relative overflow-hidden bg-white rounded-3xl shadow-lg hover:shadow-2xl transition-all duration-500 border border-gray-100">
-            <div className="absolute inset-0 bg-gradient-to-br from-green-50 to-emerald-50 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-            <div className="relative p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className="w-12 h-12 bg-green-100 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                  <CheckCircle className="w-6 h-6 text-green-600" />
+              {/* Action Buttons */}
+              <div className="space-y-3">
+                <label className="text-sm font-semibold text-gray-700 block text-center opacity-0">Actions</label>
+                <div className="flex items-center space-x-3">
+                  <Button 
+                    onClick={loadLogs}
+                    disabled={isLoading}
+                    className="h-14 px-8 bg-black text-white hover:bg-gray-800 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-300"
+                  >
+                    {isLoading ? (
+                      <div className="flex items-center space-x-2">
+                        <RefreshCw className="w-5 h-5 animate-spin" />
+                        <span>Loading...</span>
+                      </div>
+                    ) : (
+                      <>
+                        <RefreshCw className="w-5 h-5 mr-2" />
+                        Refresh Logs
+                      </>
+                    )}
+                  </Button>
+                  
+                  <Button 
+                    variant="outline"
+                    className="h-14 px-6 rounded-xl border-gray-200 hover:border-gray-300 font-semibold"
+                  >
+                    <Download className="w-5 h-5 mr-2" />
+                    Export
+                  </Button>
                 </div>
-                <div className="text-3xl font-bold text-green-600">{logs.filter(l => l.level === 'success').length}</div>
-              </div>
-              <div className="space-y-1">
-                <div className="font-semibold text-gray-900">Success</div>
-                <div className="text-sm text-gray-500">Completed tasks</div>
-              </div>
-            </div>
-          </div>
-
-          <div className="group relative overflow-hidden bg-white rounded-3xl shadow-lg hover:shadow-2xl transition-all duration-500 border border-gray-100">
-            <div className="absolute inset-0 bg-gradient-to-br from-blue-50 to-indigo-50 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-            <div className="relative p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className="w-12 h-12 bg-blue-100 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                  <Clock className="w-6 h-6 text-blue-600" />
-                </div>
-                <div className="text-3xl font-bold text-blue-600">{logs.filter(l => l.level === 'info').length}</div>
-              </div>
-              <div className="space-y-1">
-                <div className="font-semibold text-gray-900">Info</div>
-                <div className="text-sm text-gray-500">General activity</div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Logs Content */}
-        <div className="space-y-6">
-          <Tabs value={selectedTab} onValueChange={setSelectedTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-5 bg-white rounded-2xl p-1 shadow-lg border border-gray-100">
-              <TabsTrigger value="all" className="rounded-xl data-[state=active]:bg-black data-[state=active]:text-white">
-                All Logs
-              </TabsTrigger>
-              <TabsTrigger value="error" className="rounded-xl data-[state=active]:bg-red-500 data-[state=active]:text-white">
-                Errors
-              </TabsTrigger>
-              <TabsTrigger value="warning" className="rounded-xl data-[state=active]:bg-yellow-500 data-[state=active]:text-white">
-                Warnings
-              </TabsTrigger>
-              <TabsTrigger value="success" className="rounded-xl data-[state=active]:bg-green-500 data-[state=active]:text-white">
-                Success
-              </TabsTrigger>
-              <TabsTrigger value="info" className="rounded-xl data-[state=active]:bg-blue-500 data-[state=active]:text-white">
-                Info
-              </TabsTrigger>
-            </TabsList>
+        {/* Logs Display */}
+        <div className="bg-white rounded-3xl shadow-lg border border-gray-100 min-h-[600px]">
+          <div className="p-6">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center space-x-3">
+                <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">
+                  <FileText className="w-4 h-4 text-gray-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    Logs for {selectedDevice === "all" ? "All Devices" : allDevices.find(d => d.id.toString() === selectedDevice)?.name || "Unknown Device"}
+                  </h3>
+                  <p className="text-sm text-gray-500">
+                    {selectedDate ? selectedDate.toLocaleDateString() : "No date selected"}
+                  </p>
+                </div>
+              </div>
+              
+              <Badge className="bg-blue-100 text-blue-800 border-blue-200 text-sm font-semibold px-3 py-1">
+                {filteredLogs.length} entries
+              </Badge>
+            </div>
 
-            <TabsContent value={selectedTab} className="mt-6">
-              <div className="space-y-4">
-                {filteredLogs.length === 0 ? (
-                  <div className="text-center py-12">
-                    <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mb-4 mx-auto">
-                      <FileText className="w-8 h-8 text-gray-400" />
+            {/* Logs List */}
+            <div className="space-y-3">
+              {isLoading ? (
+                <div className="flex items-center justify-center py-20">
+                  <div className="text-center space-y-4">
+                    <div className="relative">
+                      <div className="w-16 h-16 border-4 border-gray-200 rounded-full animate-spin border-t-black mx-auto"></div>
                     </div>
-                    <h3 className="text-xl font-semibold text-gray-900 mb-2">No logs found</h3>
-                    <p className="text-gray-500">No {selectedTab === "all" ? "" : selectedTab} logs available for the selected filter.</p>
+                    <div className="space-y-2">
+                      <div className="text-lg font-semibold text-gray-900">Loading logs...</div>
+                      <div className="text-sm text-gray-500">Fetching logs for selected device and date</div>
+                    </div>
                   </div>
-                ) : (
-                  filteredLogs.map((log) => (
-                    <Card key={log.id} className="hover:shadow-lg transition-shadow border border-gray-100">
-                      <CardContent className="p-6">
-                        <div className="flex items-start justify-between">
-                          <div className="flex items-start space-x-4 flex-1">
-                            <div className="flex-shrink-0 mt-1">
-                              {getLogIcon(log.level)}
+                </div>
+              ) : filteredLogs.length === 0 ? (
+                <div className="text-center py-20">
+                  <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mb-4 mx-auto">
+                    <FileText className="w-8 h-8 text-gray-400" />
+                  </div>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">No logs found</h3>
+                  <p className="text-gray-500 mb-4">
+                    {selectedDevice === "all" 
+                      ? "No logs available for the selected date"
+                      : `No logs found for ${allDevices.find(d => d.id.toString() === selectedDevice)?.name || "this device"} on ${selectedDate?.toLocaleDateString()}`
+                    }
+                  </p>
+                  <Button 
+                    onClick={loadLogs}
+                    variant="outline"
+                    className="rounded-lg"
+                  >
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Refresh
+                  </Button>
+                </div>
+              ) : (
+                filteredLogs.map((log) => (
+                  <Card key={log.id} className="hover:shadow-md transition-shadow border border-gray-100">
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-start space-x-3 flex-1">
+                          <div className="flex-shrink-0 mt-1">
+                            {getLogIcon(log.level)}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center space-x-3 mb-2">
+                              <Badge className={`${getLogBadgeColor(log.level)} text-xs font-semibold`}>
+                                {log.level.toUpperCase()}
+                              </Badge>
+                              <span className="text-sm text-gray-500">{log.source}</span>
+                              <span className="text-sm text-gray-400">{log.timestamp}</span>
+                              {log.device_name && (
+                                <span className="text-xs text-gray-400">• {log.device_name}</span>
+                              )}
                             </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center space-x-3 mb-2">
-                                <Badge className={`${getLogBadgeColor(log.level)} text-xs font-semibold`}>
-                                  {log.level.toUpperCase()}
-                                </Badge>
-                                <span className="text-sm text-gray-500">{log.source}</span>
-                                <span className="text-sm text-gray-400">{log.timestamp}</span>
-                              </div>
-                              <h4 className="text-base font-semibold text-gray-900 mb-1">{log.message}</h4>
-                              <p className="text-sm text-gray-600">{log.details}</p>
-                            </div>
+                            <h4 className="text-sm font-semibold text-gray-900 mb-1">{log.message}</h4>
+                            <p className="text-xs text-gray-600">{log.details}</p>
                           </div>
                         </div>
-                      </CardContent>
-                    </Card>
-                  ))
-                )}
-              </div>
-            </TabsContent>
-          </Tabs>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
+            </div>
+          </div>
         </div>
+
+        {/* Calendar Popup */}
+        <CalendarPopup
+          open={isCalendarOpen}
+          onOpenChange={setIsCalendarOpen}
+          selectedDate={selectedDate}
+          onDateSelect={setSelectedDate}
+        />
       </div>
     </div>
   )

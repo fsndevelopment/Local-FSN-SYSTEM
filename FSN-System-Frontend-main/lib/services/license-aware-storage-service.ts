@@ -13,13 +13,39 @@ import { templatesAPI, Template as APITemplate, TemplateCreate, TemplateUpdate }
 import { warmupAPI, WarmupTemplate, WarmupTemplateCreate, WarmupTemplateUpdate } from '@/lib/api/warmup'
 import { getLicenseContext } from '@/lib/services/license-api-service'
 
+// Best-effort sync of a single account to local backend so backend has container/device mapping
+async function syncAccountToLocalBackend(acc: any): Promise<void> {
+  try {
+    const payload = {
+      id: acc.id,
+      device_id: String(acc.device_id || acc.device || ''),
+      username: acc.threads_username || acc.instagram_username || (acc as any).username || '',
+      container_number: String(acc.container_number || ''),
+      platform: acc.platform || 'threads',
+      account_phase: acc.account_phase || 'posting', // Include the account phase
+    }
+    // Fire-and-forget
+    fetch('http://localhost:8000/api/v1/accounts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }).catch(() => {})
+  } catch {
+    // ignore
+  }
+}
+
 // Storage keys (will be prefixed with license key)
 const STORAGE_KEYS = {
   ACCOUNTS: 'savedAccounts',
   DEVICES: 'savedDevices', 
   TEMPLATES: 'templates',
   DEVICE_TEMPLATES: 'deviceTemplates',
+  // New: separate mapping for warmup template assignments per device
+  DEVICE_WARMUP_TEMPLATES: 'deviceWarmupTemplates',
   ACCOUNT_DEVICES: 'accountDevices',
+  // New: account phases map (accountId -> 'warmup' | 'posting')
+  ACCOUNT_PHASES: 'accountPhases',
   MODELS: 'savedModels'
 } as const
 
@@ -43,6 +69,7 @@ export interface LocalAccount {
   updated_at: string
   device_id?: string
   container_number?: string
+  account_phase?: "warmup" | "posting" // Add account phase field
 }
 
 // Device interface for local storage
@@ -79,6 +106,7 @@ export interface LocalTemplate {
   followsPerDay: number
   likesPerDay: number
   scrollingTimeMinutes: number
+  postingIntervalMinutes: number
   createdAt: string
   updatedAt: string
 }
@@ -238,9 +266,14 @@ class LicenseAwareStorageService {
     this.setItem(storageKey, accounts)
     
     console.log(`✅ ACCOUNTS - Saved account "${account.platform === 'instagram' ? account.instagram_username : account.threads_username}" to localStorage (${accounts.length} total)`)
+    // Also sync to local backend (best-effort)
+    syncAccountToLocalBackend(account)
   }
 
   async updateAccount(accountId: string, updates: Partial<LocalAccount>): Promise<void> {
+    console.log('🔄 ACCOUNTS - Starting update process for account:', accountId)
+    console.log('🔄 ACCOUNTS - Updates to apply:', updates)
+    
     const licenseContext = getLicenseContext()
     if (!licenseContext) {
       console.warn('No license context available')
@@ -249,35 +282,59 @@ class LicenseAwareStorageService {
     
     // Get license-specific storage key
     const licenseKey = licenseContext.licenseKey
-    const storageKey = `${licenseKey}_${STORAGE_KEYS.ACCOUNTS}`
+    const storageKey = `fsn_accounts_${licenseKey}` // Match the key used in getAccounts
+    
+    console.log('🔄 ACCOUNTS - Using storage key:', storageKey)
     
     try {
-      // Try API first
-      const accountData: AccountUpdate = {
-        username: updates.instagram_username || updates.threads_username,
-        platform: updates.platform as 'instagram' | 'threads',
-        auth_type: updates.authType as '2fa' | 'non-2fa',
-        email: updates.email,
-        two_factor_code: updates.twoFactorCode,
-        password: updates.password,
-        model_id: updates.model ? parseInt(updates.model) : undefined,
-        device_id: updates.device ? parseInt(updates.device) : undefined,
-        notes: updates.notes,
-        container_number: updates.container_number ? parseInt(updates.container_number) : undefined
+      // Try API first - but only if accountId is a valid number (API accounts)
+      const numericId = parseInt(accountId)
+      if (!isNaN(numericId) && numericId.toString() === accountId) {
+        console.log('📡 ACCOUNTS - Attempting API update for numeric ID:', numericId)
+        const accountData: AccountUpdate = {
+          username: updates.instagram_username || updates.threads_username,
+          platform: updates.platform as 'instagram' | 'threads',
+          auth_type: updates.authType as '2fa' | 'non-2fa',
+          email: updates.email,
+          two_factor_code: updates.twoFactorCode,
+          password: updates.password,
+          model_id: updates.model ? parseInt(updates.model) : undefined,
+          device_id: updates.device ? parseInt(updates.device) : undefined,
+          notes: updates.notes,
+          container_number: updates.container_number ? parseInt(updates.container_number) : undefined,
+          account_phase: updates.account_phase as 'warmup' | 'posting' // Include account phase
+        }
+        
+        await accountsAPI.updateAccount(numericId, accountData)
+        console.log('✅ ACCOUNTS - Updated via API successfully')
+      } else {
+        console.log('📱 ACCOUNTS - String ID detected, skipping API (local-only account):', accountId)
       }
-      
-      await accountsAPI.updateAccount(parseInt(accountId), accountData)
       
       // Update license-specific localStorage
       const accounts = this.getItem<LocalAccount[]>(storageKey) || []
+      console.log('🔄 ACCOUNTS - Found accounts in storage:', accounts.length)
+      console.log('🔄 ACCOUNTS - Looking for account ID:', accountId)
+      
       const index = accounts.findIndex(acc => acc.id === accountId)
+      console.log('🔄 ACCOUNTS - Account index found:', index)
+      
       if (index !== -1) {
+        const oldAccount = accounts[index]
         accounts[index] = { 
           ...accounts[index], 
           ...updates, 
           updated_at: new Date().toISOString() 
         }
+        console.log('🔄 ACCOUNTS - Account before update:', oldAccount)
+        console.log('🔄 ACCOUNTS - Account after update:', accounts[index])
+        
         this.setItem(storageKey, accounts)
+        console.log('✅ ACCOUNTS - Successfully updated in localStorage')
+        // Sync updated record to local backend
+        syncAccountToLocalBackend(accounts[index])
+      } else {
+        console.error('❌ ACCOUNTS - Account not found in localStorage for update')
       }
       
     } catch (error) {
@@ -293,32 +350,71 @@ class LicenseAwareStorageService {
   }
 
   async deleteAccount(accountId: string): Promise<void> {
+    console.log('🗑️ ACCOUNTS - Starting delete process for account:', accountId)
+    
     const licenseContext = getLicenseContext()
-    if (!licenseContext) {
-      console.warn('No license context available')
-      return
+    if (!licenseContext?.isValid) {
+      console.error('❌ ACCOUNTS - No valid license context available')
+      throw new Error('No valid license context available')
     }
     
     // Get license-specific storage key
     const licenseKey = licenseContext.licenseKey
-    const storageKey = `${licenseKey}_${STORAGE_KEYS.ACCOUNTS}`
+    const storageKey = `fsn_accounts_${licenseKey}` // Match the key used in getAccounts
+    
+    let apiSuccess = false
+    let apiError: any = null
     
     try {
-      // Try API first
-      await accountsAPI.deleteAccount(parseInt(accountId))
-      
-      // Update license-specific localStorage
-      const accounts = this.getItem<LocalAccount[]>(storageKey) || []
-      const filtered = accounts.filter(acc => acc.id !== accountId)
-      this.setItem(storageKey, filtered)
-      
+      // Try API first - but only if accountId is a valid number (API accounts)
+      const numericId = parseInt(accountId)
+      if (!isNaN(numericId) && numericId.toString() === accountId) {
+        console.log('📡 ACCOUNTS - Attempting API delete for numeric ID:', numericId)
+        await accountsAPI.deleteAccount(numericId)
+        apiSuccess = true
+        console.log('✅ ACCOUNTS - Deleted via API successfully')
+      } else {
+        console.log('📱 ACCOUNTS - String ID detected, skipping API (local-only account):', accountId)
+        apiSuccess = false // Skip API for local-only accounts
+      }
     } catch (error) {
-      console.warn('Failed to delete account via API, using license-based localStorage fallback:', error)
-      // Fallback to license-specific localStorage
-      const accounts = this.getItem<LocalAccount[]>(storageKey) || []
-      const filtered = accounts.filter(acc => acc.id !== accountId)
-      this.setItem(storageKey, filtered)
+      apiError = error
+      console.warn('⚠️ ACCOUNTS - API delete failed, using localStorage fallback:', {
+        error: error,
+        message: error instanceof Error ? error.message : 'Unknown error',
+        accountId
+      })
     }
+    
+    // Always update localStorage (either after successful API call or as fallback)
+    try {
+      const accounts = this.getItem<LocalAccount[]>(storageKey) || []
+      const originalCount = accounts.length
+      const filtered = accounts.filter(acc => acc.id !== accountId)
+      
+      if (filtered.length === originalCount) {
+        console.warn('⚠️ ACCOUNTS - Account not found in localStorage:', accountId)
+        // If API failed and account not in localStorage, throw error
+        if (!apiSuccess) {
+          throw new Error(`Account with ID ${accountId} not found. API error: ${apiError instanceof Error ? apiError.message : 'Unknown API error'}`)
+        }
+      } else {
+        this.setItem(storageKey, filtered)
+        console.log('✅ ACCOUNTS - Updated localStorage after delete. Removed 1 account, remaining:', filtered.length)
+      }
+    } catch (fallbackError) {
+      console.error('❌ ACCOUNTS - Failed to delete account in localStorage:', fallbackError)
+      
+      // If both API and localStorage failed, throw a comprehensive error
+      if (!apiSuccess) {
+        throw new Error(`Failed to delete account: API error (${apiError instanceof Error ? apiError.message : 'Unknown'}) and localStorage error (${fallbackError instanceof Error ? fallbackError.message : 'Unknown'})`)
+      } else {
+        // API succeeded but localStorage failed - this is less critical
+        console.warn('⚠️ ACCOUNTS - API delete succeeded but localStorage cleanup failed')
+      }
+    }
+    
+    console.log('🎉 ACCOUNTS - Delete process completed for account:', accountId)
   }
 
   // Device management - License-based shared storage
@@ -466,6 +562,8 @@ class LicenseAwareStorageService {
     const oldStorageKey = STORAGE_KEYS.TEMPLATES // Old storage key
     
     console.log('📱 TEMPLATES - Loading from localStorage...')
+    console.log('🔍 DEBUG - License key:', licenseKey)
+    console.log('🔍 DEBUG - Storage key:', storageKey)
     
     // Try license-aware storage first
     let storedTemplates = this.getItem<LocalTemplate[]>(storageKey) || []
@@ -489,6 +587,8 @@ class LicenseAwareStorageService {
       id: t.id,
       name: t.name,
       platform: t.platform,
+      postingIntervalMinutes: t.postingIntervalMinutes,
+      textPostsPerDay: t.textPostsPerDay,
       createdAt: t.createdAt
     })))
     
@@ -527,6 +627,9 @@ class LicenseAwareStorageService {
     const storageKey = `fsn_templates_${licenseKey}` // Consistent storage key
     
     console.log('💾 TEMPLATES - Saving to localStorage...')
+    console.log('🔍 DEBUG - Template being saved:', template)
+    console.log('🔍 DEBUG - postingIntervalMinutes in template:', template.postingIntervalMinutes)
+    console.log('🔍 DEBUG - Storage key:', storageKey)
     
     const templates = this.getItem<LocalTemplate[]>(storageKey) || []
     
@@ -545,6 +648,11 @@ class LicenseAwareStorageService {
     this.setItem(storageKey, templates)
     
     console.log(`✅ TEMPLATES - Saved template "${template.name}" to localStorage (${templates.length} total)`)
+    console.log('🔍 DEBUG - All templates after save:', templates.map(t => ({
+      id: t.id,
+      name: t.name,
+      postingIntervalMinutes: t.postingIntervalMinutes
+    })))
   }
 
   async updateTemplate(templateId: string, updates: Partial<LocalTemplate>): Promise<void> {
@@ -570,8 +678,8 @@ class LicenseAwareStorageService {
       
       // Update localStorage
       const licenseContext = getLicenseContext()
-      if (licenseContext.isValid) {
-        const licenseKey = licenseContext.licenseKey
+      if (licenseContext?.isValid && licenseContext.licenseKey) {
+        const licenseKey = licenseContext.licenseKey as string
         const storageKey = `fsn_templates_${licenseKey}`
         const templates = this.getItem<LocalTemplate[]>(storageKey) || []
         const index = templates.findIndex(t => t.id === templateId)
@@ -590,8 +698,8 @@ class LicenseAwareStorageService {
       // Fallback to localStorage
       try {
         const licenseContext = getLicenseContext()
-        if (licenseContext.isValid) {
-          const licenseKey = licenseContext.licenseKey
+        if (licenseContext?.isValid && licenseContext.licenseKey) {
+          const licenseKey = licenseContext.licenseKey as string
           const storageKey = `fsn_templates_${licenseKey}`
           const templates = this.getItem<LocalTemplate[]>(storageKey) || []
           const index = templates.findIndex(t => t.id === templateId)
@@ -607,85 +715,141 @@ class LicenseAwareStorageService {
   }
 
   async deleteTemplate(templateId: string): Promise<void> {
+    console.log('🗑️ TEMPLATES - Starting delete process for template:', templateId)
+    
+    let apiSuccess = false
+    let apiError: any = null
+    
     try {
       // Try API first
+      console.log('📡 TEMPLATES - Attempting API delete...')
       await templatesAPI.deleteTemplate(parseInt(templateId))
-      
-      // Update localStorage
-      const licenseContext = getLicenseContext()
-      if (licenseContext.isValid) {
+      apiSuccess = true
+      console.log('✅ TEMPLATES - Deleted via API successfully')
+    } catch (error) {
+      apiError = error
+      console.warn('⚠️ TEMPLATES - API delete failed, using localStorage fallback:', {
+        error: error,
+        message: error instanceof Error ? error.message : 'Unknown error',
+        templateId
+      })
+      // Continue to localStorage fallback
+    }
+    
+    // Always update localStorage (either after successful API call or as fallback)
+    const licenseContext = getLicenseContext()
+    console.log('🔍 TEMPLATES - License context check:', { 
+      hasContext: !!licenseContext, 
+      isValid: licenseContext?.isValid,
+      licenseKey: licenseContext?.licenseKey ? 'present' : 'missing'
+    })
+    
+    if (licenseContext?.isValid && licenseContext?.licenseKey) {
+      try {
         const licenseKey = licenseContext.licenseKey
         const storageKey = `fsn_templates_${licenseKey}`
         const templates = this.getItem<LocalTemplate[]>(storageKey) || []
+        const originalCount = templates.length
         const filtered = templates.filter(t => t.id !== templateId)
-        this.setItem(storageKey, filtered)
-      }
-      
-    } catch (error) {
-      console.warn('Failed to delete template via API, using localStorage fallback:', error)
-      // Fallback to localStorage
-      try {
-        const licenseContext = getLicenseContext()
-        if (licenseContext.isValid) {
-          const licenseKey = licenseContext.licenseKey
-          const storageKey = `fsn_templates_${licenseKey}`
-          const templates = this.getItem<LocalTemplate[]>(storageKey) || []
-          const filtered = templates.filter(t => t.id !== templateId)
+        
+        console.log('📊 TEMPLATES - localStorage operation:', {
+          storageKey,
+          originalCount,
+          filteredCount: filtered.length,
+          templateId,
+          found: originalCount !== filtered.length
+        })
+        
+        if (filtered.length === originalCount) {
+          console.warn('⚠️ TEMPLATES - Template not found in localStorage:', templateId)
+          // For warmup templates, this might be normal if they're only stored locally
+          if (!apiSuccess) {
+            console.warn('⚠️ TEMPLATES - Template not found in API or localStorage, but this might be expected for warmup templates')
+            // Don't throw error for warmup templates - they might only exist locally
+          }
+        } else {
           this.setItem(storageKey, filtered)
+          console.log('✅ TEMPLATES - Updated localStorage after delete. Removed 1 template, remaining:', filtered.length)
+        }
+      } catch (localStorageError) {
+        console.error('❌ TEMPLATES - localStorage operation failed:', localStorageError)
+        
+        // Only throw error if both API and localStorage failed
+        if (!apiSuccess) {
+          console.error('❌ TEMPLATES - Both API and localStorage failed')
+          // For user experience, we'll log the error but not throw it
+          // The UI should handle the error gracefully
+        }
+      }
+    } else {
+      console.warn('⚠️ TEMPLATES - Invalid license context, trying alternative storage approach')
+      
+      // Try alternative storage keys as fallback
+      try {
+        // Try different storage key formats for different template types
+        const alternativeKeys = [
+          'fsn_templates', // Old regular templates
+          'warmupTemplates', // Old warmup templates
+          `fsn_warmup_templates_${licenseContext?.licenseKey}`, // Warmup templates with license
+          'templates', // Generic templates
+        ]
+        
+        let found = false
+        for (const storageKey of alternativeKeys) {
+          try {
+            const templates = this.getItem<any[]>(storageKey) || []
+            const filtered = templates.filter(t => t.id !== templateId)
+            
+            if (filtered.length < templates.length) {
+              this.setItem(storageKey, filtered)
+              console.log(`✅ TEMPLATES - Deleted from fallback storage: ${storageKey}`)
+              found = true
+              break
+            }
+          } catch (keyError) {
+            console.warn(`⚠️ TEMPLATES - Failed to check storage key: ${storageKey}`, keyError)
+          }
+        }
+        
+        if (!found && !apiSuccess) {
+          console.warn('⚠️ TEMPLATES - Template not found in any storage location')
         }
       } catch (fallbackError) {
-        console.error('Failed to delete template in localStorage:', fallbackError)
-      }
-    }
-  }
-
-  // Warmup template management - API-based with localStorage fallback
-  async getWarmupTemplates(): Promise<LocalWarmupTemplate[]> {
-    try {
-      // Get license context
-      const licenseContext = getLicenseContext()
-      if (!licenseContext) {
-        console.warn('Invalid license context for warmup templates')
-        return []
-      }
-      
-      // Get license-specific storage key
-      const licenseKey = licenseContext.licenseKey
-      const storageKey = `fsn_warmup_templates_${licenseKey}`
-      const oldStorageKey = 'warmupTemplates' // Old storage key
-      
-      console.log('🔥 WARMUP - Loading from localStorage...')
-      
-      // Try license-aware storage first
-      let storedTemplates = this.getItem<LocalWarmupTemplate[]>(storageKey) || []
-      
-      // If no templates found in license-aware storage, check old storage key
-      if (storedTemplates.length === 0) {
-        console.log('🔥 WARMUP - No templates in license-aware storage, checking old storage key...')
-        const oldTemplates = this.getItem<LocalWarmupTemplate[]>(oldStorageKey) || []
-        if (oldTemplates.length > 0) {
-          console.log(`🔥 WARMUP - Found ${oldTemplates.length} templates in old storage, migrating...`)
-          // Migrate to license-aware storage
-          this.setItem(storageKey, oldTemplates)
-          // Remove from old storage
-          localStorage.removeItem(oldStorageKey)
-          storedTemplates = oldTemplates
+        console.error('❌ TEMPLATES - All fallback methods failed:', fallbackError)
+        if (!apiSuccess) {
+          console.error('❌ TEMPLATES - Complete deletion failure')
+          // Log but don't throw - let the UI handle it gracefully
         }
       }
-      
-      console.log(`✅ WARMUP - Loaded ${storedTemplates.length} warmup templates from localStorage`)
-      console.log('🔥 WARMUP - Template details:', storedTemplates.map(t => ({
-        id: t.id,
-        name: t.name,
-        platform: t.platform,
-        createdAt: t.createdAt
-      })))
-      
-      return storedTemplates
-    } catch (error) {
-      console.warn('Failed to fetch warmup templates:', error)
+    }
+    
+    console.log('🎉 TEMPLATES - Delete process completed for template:', templateId)
+  }
+
+  // Warmup template management - localStorage-first (mirror Templates page behavior)
+  async getWarmupTemplates(): Promise<LocalWarmupTemplate[]> {
+    // Primary source: license-aware localStorage (same as Templates)
+    const licenseContext = getLicenseContext()
+    if (!licenseContext) {
+      console.warn('Invalid license context for warmup templates')
       return []
     }
+
+    const licenseKey = licenseContext.licenseKey
+    const storageKey = `fsn_warmup_templates_${licenseKey}`
+    const oldStorageKey = 'warmupTemplates' // Legacy key
+
+    let storedTemplates = this.getItem<LocalWarmupTemplate[]>(storageKey) || []
+    if (storedTemplates.length === 0) {
+      const legacy = this.getItem<LocalWarmupTemplate[]>(oldStorageKey) || []
+      if (legacy.length > 0) {
+        this.setItem(storageKey, legacy)
+        localStorage.removeItem(oldStorageKey)
+        storedTemplates = legacy
+      }
+    }
+
+    return storedTemplates
   }
 
   async saveWarmupTemplates(templates: LocalWarmupTemplate[]): Promise<void> {
@@ -708,49 +872,158 @@ class LicenseAwareStorageService {
     }
   }
 
-  async addWarmupTemplate(template: LocalWarmupTemplate): Promise<void> {
+  async deleteWarmupTemplate(templateId: string): Promise<void> {
+    console.log('🗑️ WARMUP TEMPLATES - Starting delete process for template:', templateId)
+    
+    const licenseContext = getLicenseContext()
+    console.log('🔍 WARMUP TEMPLATES - License context check:', { 
+      hasContext: !!licenseContext, 
+      isValid: licenseContext?.isValid,
+      licenseKey: licenseContext?.licenseKey ? 'present' : 'missing'
+    })
+    
+    if (licenseContext?.isValid && licenseContext?.licenseKey) {
+      try {
+        const licenseKey = licenseContext.licenseKey
+        const storageKey = `fsn_warmup_templates_${licenseKey}`
+        const templates = this.getItem<LocalWarmupTemplate[]>(storageKey) || []
+        const originalCount = templates.length
+        const filtered = templates.filter(t => t.id !== templateId)
+        
+        console.log('📊 WARMUP TEMPLATES - localStorage operation:', {
+          storageKey,
+          originalCount,
+          filteredCount: filtered.length,
+          templateId,
+          found: originalCount !== filtered.length
+        })
+        
+        if (filtered.length === originalCount) {
+          console.warn('⚠️ WARMUP TEMPLATES - Template not found in localStorage:', templateId)
+          throw new Error(`Warmup template with ID ${templateId} not found`)
+        } else {
+          this.setItem(storageKey, filtered)
+          console.log('✅ WARMUP TEMPLATES - Updated localStorage after delete. Removed 1 template, remaining:', filtered.length)
+        }
+      } catch (localStorageError) {
+        console.error('❌ WARMUP TEMPLATES - localStorage operation failed:', localStorageError)
+        throw localStorageError
+      }
+    } else {
+      console.warn('⚠️ WARMUP TEMPLATES - Invalid license context, trying fallback storage')
+      
+      // Try the old storage key format
+      try {
+        const oldStorageKey = 'warmupTemplates'
+        const templates = this.getItem<LocalWarmupTemplate[]>(oldStorageKey) || []
+        const filtered = templates.filter(t => t.id !== templateId)
+        
+        if (filtered.length < templates.length) {
+          this.setItem(oldStorageKey, filtered)
+          console.log('✅ WARMUP TEMPLATES - Deleted from fallback storage')
+        } else {
+          throw new Error(`Warmup template with ID ${templateId} not found in fallback storage`)
+        }
+      } catch (fallbackError) {
+        console.error('❌ WARMUP TEMPLATES - All storage methods failed:', fallbackError)
+        throw new Error(`Failed to delete warmup template: ${fallbackError instanceof Error ? fallbackError.message : 'Unknown error'}`)
+      }
+    }
+    
+    // Ensure deletion from both storage locations to prevent reappearance on refresh
     try {
-      // Try API first
-      const templateData: WarmupTemplateCreate = {
-        name: template.name,
-        description: template.name,
-        platform: template.platform,
-        phase: 'phase_1', // Default phase
-        actions: [],
-        settings: {
-          captionsFile: template.captionsFile,
-          photosPostsPerDay: template.photosPostsPerDay,
-          photosFolder: template.photosFolder,
-          textPostsPerDay: template.textPostsPerDay,
-          textPostsFile: template.textPostsFile,
-          followsPerDay: template.followsPerDay,
-          likesPerDay: template.likesPerDay,
-          scrollingTimeMinutes: template.scrollingTimeMinutes
-        },
-        is_active: true
+      const licenseKey = getLicenseContext()?.licenseKey
+      if (licenseKey) {
+        const licenseKeyStorage = `fsn_warmup_templates_${licenseKey}`
+        const arr1 = this.getItem<LocalWarmupTemplate[]>(licenseKeyStorage) || []
+        const arr1f = arr1.filter(t => t.id !== templateId)
+        if (arr1f.length !== arr1.length) this.setItem(licenseKeyStorage, arr1f)
       }
-      
-      const apiTemplate = await warmupAPI.createWarmupTemplate(templateData)
-      
-      // Update local template with API response
-      const updatedTemplate: LocalTemplate = {
-        ...template,
-        id: apiTemplate.data.id.toString(),
-        createdAt: apiTemplate.data.created_at,
-        updatedAt: apiTemplate.data.updated_at
+      const legacyArr = this.getItem<LocalWarmupTemplate[]>('warmupTemplates') || []
+      const legacyF = legacyArr.filter(t => t.id !== templateId)
+      if (legacyF.length !== legacyArr.length) this.setItem('warmupTemplates', legacyF)
+    } catch {}
+
+    console.log('🎉 WARMUP TEMPLATES - Delete process completed for template:', templateId)
+  }
+
+  async addWarmupTemplate(template: LocalWarmupTemplate): Promise<void> {
+    const licenseContext = getLicenseContext()
+    if (!licenseContext) {
+      console.warn('No license context available for warmup template save')
+      return
+    }
+
+    const licenseKey = licenseContext.licenseKey
+    const storageKey = `fsn_warmup_templates_${licenseKey}`
+
+    // Ensure id and timestamps (mirror Templates save behavior)
+    const toSave: LocalWarmupTemplate = { ...template }
+    if (!toSave.id) {
+      toSave.id = `warmup_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    }
+    if (!toSave.createdAt) {
+      toSave.createdAt = new Date().toISOString()
+    }
+    toSave.updatedAt = new Date().toISOString()
+
+    const templates = this.getItem<LocalWarmupTemplate[]>(storageKey) || []
+    templates.push(toSave)
+    this.setItem(storageKey, templates)
+
+    console.log(`✅ WARMUP - Saved template "${toSave.name}" to localStorage (${templates.length} total)`) 
+
+    // Background server sync disabled to prevent duplicates
+  }
+
+  async updateWarmupTemplate(templateId: string, updates: Partial<LocalWarmupTemplate>): Promise<void> {
+    const licenseContext = getLicenseContext()
+    if (!licenseContext) {
+      console.warn('No license context available for warmup template update')
+      return
+    }
+
+    const licenseKey = licenseContext.licenseKey
+    const storageKey = `fsn_warmup_templates_${licenseKey}`
+
+    const templates = this.getItem<LocalWarmupTemplate[]>(storageKey) || []
+    const index = templates.findIndex(t => t.id === templateId)
+    if (index === -1) {
+      console.warn('Warmup template not found in storage:', templateId)
+      return
+    }
+
+    const current = templates[index]
+    const updated: LocalWarmupTemplate = {
+      ...current,
+      ...updates,
+      days: updates.days ? updates.days : current.days,
+      updatedAt: new Date().toISOString(),
+    }
+
+    templates[index] = updated
+    this.setItem(storageKey, templates)
+    console.log('✅ WARMUP - Updated template in localStorage:', templateId)
+
+    // Best-effort API PUT when ID is numeric
+    const isNumericId = /^\d+$/.test(templateId)
+    if (isNumericId) {
+      try {
+        const templateData = {
+          name: updated.name,
+          platform: updated.platform,
+          total_days: updated.days.length,
+          days_config: updated.days.map(day => ({
+            day_number: day.day,
+            scroll_minutes: day.scrollTime,
+            likes_count: day.likes,
+            follows_count: day.follows,
+          })),
+        }
+        await warmupAPI.updateWarmupTemplate(parseInt(templateId, 10), templateData as any)
+      } catch {
+        // ignore background sync failure
       }
-      
-      // Update localStorage
-      const templates = this.getItem<LocalTemplate[]>('warmupTemplates') || []
-      templates.push(updatedTemplate)
-      this.setItem('warmupTemplates', templates)
-      
-    } catch (error) {
-      console.warn('Failed to create warmup template via API, using localStorage fallback:', error)
-      // Fallback to localStorage
-      const templates = this.getItem<LocalTemplate[]>('warmupTemplates') || []
-      templates.push(template)
-      this.setItem('warmupTemplates', templates)
     }
   }
 
@@ -775,6 +1048,27 @@ class LicenseAwareStorageService {
     this.saveDeviceTemplates(assignments)
   }
 
+  // Device warmup template assignments (separate map)
+  getDeviceWarmupTemplates(): Record<string, string> {
+    return this.getItem<Record<string, string>>(STORAGE_KEYS.DEVICE_WARMUP_TEMPLATES) || {}
+  }
+
+  saveDeviceWarmupTemplates(assignments: Record<string, string>): void {
+    this.setItem(STORAGE_KEYS.DEVICE_WARMUP_TEMPLATES, assignments)
+  }
+
+  assignWarmupTemplateToDevice(deviceId: string, warmupTemplateId: string): void {
+    const assignments = this.getDeviceWarmupTemplates()
+    assignments[deviceId] = warmupTemplateId
+    this.saveDeviceWarmupTemplates(assignments)
+  }
+
+  removeWarmupTemplateFromDevice(deviceId: string): void {
+    const assignments = this.getDeviceWarmupTemplates()
+    delete assignments[deviceId]
+    this.saveDeviceWarmupTemplates(assignments)
+  }
+
   // Account device assignments
   getAccountDevices(): Record<string, string> {
     return this.getItem<Record<string, string>>(STORAGE_KEYS.ACCOUNT_DEVICES) || {}
@@ -794,6 +1088,66 @@ class LicenseAwareStorageService {
     const assignments = this.getAccountDevices()
     delete assignments[accountId]
     this.saveAccountDevices(assignments)
+  }
+
+  // Account phase management
+  getAccountPhases(): Record<string, 'warmup' | 'posting'> {
+    return this.getItem<Record<string, 'warmup' | 'posting'>>(STORAGE_KEYS.ACCOUNT_PHASES) || {}
+  }
+
+  setAccountPhase(accountId: string, phase: 'warmup' | 'posting'): void {
+    const phases = this.getAccountPhases()
+    phases[accountId] = phase
+    this.setItem(STORAGE_KEYS.ACCOUNT_PHASES, phases)
+    
+    // Also update the backend warmup tracking files
+    this.updateBackendWarmupPhase(accountId, phase)
+  }
+
+  getAccountPhase(accountId: string): 'warmup' | 'posting' {
+    const phases = this.getAccountPhases()
+    return phases[accountId] || 'posting'
+  }
+
+  private updateBackendWarmupPhase(accountId: string, phase: 'warmup' | 'posting'): void {
+    try {
+      // Get the account to find the username for the backend
+      const accounts = this.getAccounts()
+      const account = accounts.find(acc => acc.id === accountId)
+      if (!account) {
+        console.warn('Account not found for phase update:', accountId)
+        return
+      }
+
+      const username = account.instagram_username || account.threads_username
+      if (!username) {
+        console.warn('No username found for account:', accountId)
+        return
+      }
+
+      // Call the backend API to update the warmup phase
+      fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/accounts/update-phase`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          account_id: accountId,
+          username: username,
+          phase: phase
+        })
+      }).then(response => {
+        if (response.ok) {
+          console.log(`✅ Updated backend phase for ${username} to ${phase}`)
+        } else {
+          console.warn(`⚠️ Failed to update backend phase for ${username}:`, response.statusText)
+        }
+      }).catch(error => {
+        console.warn(`⚠️ Error updating backend phase for ${username}:`, error)
+      })
+    } catch (error) {
+      console.warn('Error updating backend warmup phase:', error)
+    }
   }
 
   // Model management - API-first with localStorage fallback

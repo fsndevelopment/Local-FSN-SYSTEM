@@ -241,6 +241,20 @@ class ConcurrentJobExecutor:
                     if not account or not device:
                         raise Exception("Account or device not found")
                     
+                    # Notify WebSocket about account processing start
+                    try:
+                        from .websocket_manager import websocket_service
+                        await websocket_service.notify_account_processing(
+                            device_id=str(device.id),
+                            username=account.username,
+                            account_id=str(account.id),
+                            current_step="Starting concurrent job execution",
+                            progress=0
+                        )
+                        logger.info(f"📡 WebSocket notification sent: Account {account.username} starting on device {device.id}")
+                    except Exception as e:
+                        logger.error(f"Failed to send WebSocket notification: {e}")
+                    
                     # Execute job action
                     start_time = datetime.utcnow()
                     execution_result = await self._execute_job_action_concurrent(job, account, device)
@@ -267,18 +281,16 @@ class ConcurrentJobExecutor:
                             )
                         )
                         
-                        # Notify WebSocket clients about job completion
+                        # Notify WebSocket clients about job completion with username
                         try:
-                            await websocket_service.notify_job_status_change(
-                                job_id=job.id,
-                                old_status='running',
-                                new_status='completed',
-                                progress={
-                                    'execution_time': execution_time,
-                                    'result': execution_result,
-                                    'device_udid': device_udid
-                                }
+                            await websocket_service.notify_account_processing(
+                                device_id=str(device.id),
+                                username=account.username,
+                                account_id=str(account.id),
+                                current_step="Job completed successfully",
+                                progress=100
                             )
+                            logger.info(f"📡 WebSocket notification sent: Account {account.username} completed on device {device.id}")
                         except Exception as e:
                             logger.error(f"Failed to send WebSocket notification for job {job.id}: {e}")
                         logger.info(f"✅ Job {job.id} completed successfully on device {device_udid[:8]}...")

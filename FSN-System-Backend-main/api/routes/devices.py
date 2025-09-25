@@ -490,6 +490,20 @@ async def start_device_process(
         if not device:
             raise HTTPException(status_code=404, detail="Device not found")
         
+        # Send test WebSocket notification when device starts
+        try:
+            from ..services.websocket_manager import websocket_service
+            await websocket_service.notify_account_processing(
+                device_id=str(device.id),
+                username="test_user_device_start",
+                account_id="test_account_123",
+                current_step="Device starting automation",
+                progress=5
+            )
+            logger.info(f"📡 Test WebSocket notification sent for device start: {device.id}")
+        except Exception as e:
+            logger.error(f"Failed to send test WebSocket notification: {e}")
+        
         session_id = None
         
         # Check if device is managed by a remote agent

@@ -124,21 +124,21 @@ class TemplateJobConverter:
                 if template_data.get('likesPerDay', 0) > 0:
                     jobs.extend(self._create_action_jobs(
                         account, device_id, platform_mapping['likes'], 
-                        template_data['likesPerDay'], 'likes', priority
+                        template_data['likesPerDay'], 'likes', priority, template_data
                     ))
                 
                 # Follows per day
                 if template_data.get('followsPerDay', 0) > 0:
                     jobs.extend(self._create_action_jobs(
                         account, device_id, platform_mapping['follows'], 
-                        template_data['followsPerDay'], 'follows', priority
+                        template_data['followsPerDay'], 'follows', priority, template_data
                     ))
                 
                 # Posts per day (photos)
                 if template_data.get('photosPostsPerDay', 0) > 0:
                     jobs.extend(self._create_action_jobs(
                         account, device_id, platform_mapping['posts'], 
-                        template_data['photosPostsPerDay'], 'posts', priority,
+                        template_data['photosPostsPerDay'], 'posts', priority, template_data,
                         content_type='photos',
                         content_path=template_data.get('photosFolder', '')
                     ))
@@ -147,7 +147,7 @@ class TemplateJobConverter:
                 if template_data.get('textPostsPerDay', 0) > 0:
                     jobs.extend(self._create_action_jobs(
                         account, device_id, platform_mapping['posts'], 
-                        template_data['textPostsPerDay'], 'text_posts', priority,
+                        template_data['textPostsPerDay'], 'text_posts', priority, template_data,
                         content_type='text',
                         content_path=template_data.get('textPostsFile', '')
                     ))
@@ -156,7 +156,7 @@ class TemplateJobConverter:
                 if platform == 'instagram' and template_data.get('storiesPerDay', 0) > 0:
                     jobs.extend(self._create_action_jobs(
                         account, device_id, platform_mapping['stories'], 
-                        template_data['storiesPerDay'], 'stories', priority
+                        template_data['storiesPerDay'], 'stories', priority, template_data
                     ))
         
         return jobs
@@ -193,7 +193,8 @@ class TemplateJobConverter:
                     'duration_minutes': scrolling_minutes,
                     'action_type': 'scrolling',
                     'template_id': template_data.get('id'),
-                    'template_name': template_data.get('name')
+                    'template_name': template_data.get('name'),
+                    'posting_interval_minutes': template_data.get('postingIntervalMinutes', 30)
                 },
                 'not_before': datetime.utcnow().isoformat(),
                 'max_attempts': 3
@@ -209,6 +210,7 @@ class TemplateJobConverter:
         count: int, 
         action_name: str,
         priority: str,
+        template_data: Dict[str, Any],
         content_type: str = None,
         content_path: str = None
     ) -> List[Dict[str, Any]]:
@@ -232,8 +234,9 @@ class TemplateJobConverter:
                     'action_type': action_name,
                     'content_type': content_type,
                     'content_path': content_path,
-                    'template_id': getattr(account, 'template_id', None),
-                    'template_name': getattr(account, 'template_name', None)
+                    'template_id': template_data.get('id'),
+                    'template_name': template_data.get('name'),
+                    'posting_interval_minutes': template_data.get('postingIntervalMinutes', 30)
                 },
                 'not_before': not_before.isoformat(),
                 'max_attempts': 3

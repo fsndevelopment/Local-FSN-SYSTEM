@@ -17,15 +17,26 @@ import { useDevices, useDeviceStats } from "@/lib/hooks/use-devices"
 import { useAccounts } from "@/lib/hooks/use-accounts"
 import { useJobs } from "@/lib/hooks/use-jobs"
 import { licenseAwareStorageService } from "@/lib/services/license-aware-storage-service"
+import { usePlatform } from "@/lib/platform"
+import { PlatformHeader } from "@/components/platform-header"
 
 export default function DashboardPage() {
   const router = useRouter()
   
-  // Use real API hooks
-  const { data: devicesResponse, isLoading: devicesLoading } = useDevices()
-  const { data: accountsData } = useAccounts()
-  const { data: jobsData } = useJobs()
+  // Use real API hooks with refetch capabilities
+  const { data: devicesResponse, isLoading: devicesLoading, refetch: refetchDevices } = useDevices()
+  const { data: accountsData, refetch: refetchAccounts } = useAccounts()
+  const { data: jobsData, refetch: refetchJobs } = useJobs()
   const { stats: deviceStats, isLoading: statsLoading } = useDeviceStats()
+  
+  // Manual refresh function
+  const refreshDashboard = () => {
+    console.log('🔄 DASHBOARD - Manual refresh triggered')
+    refetchDevices()
+    refetchAccounts()
+    refetchJobs()
+    // refetchStats() - not available in this hook
+  }
   
   // Handle both array format and paginated response format
   const devices = Array.isArray(devicesResponse) 
@@ -33,42 +44,73 @@ export default function DashboardPage() {
     : devicesResponse?.devices || []
   
   // Extract items from paginated responses with defensive programming
-  const accounts = Array.isArray(accountsData?.items) ? accountsData.items : []
-  const jobs = Array.isArray(jobsData?.items) ? jobsData.items : []
+  const accounts = Array.isArray((accountsData as any)?.items) ? (accountsData as any).items : []
+  const jobs = Array.isArray((jobsData as any)?.items) ? (jobsData as any).items : []
   
-  // Calculate running devices from API data
-  const runningDevices = devices.filter(device => device.status === 'active')
+  // Calculate running devices from API data - check multiple status values
+  const runningDevices = devices.filter((device: any) => 
+    device.status === 'active' || 
+    device.status === 'running' || 
+    device.status === 'connected'
+  )
   
-  console.log('Dashboard device stats:', { 
+  console.log('📊 DASHBOARD STATS - Device analysis:', { 
     totalDevices: devices.length, 
     runningDevices: runningDevices.length,
-    deviceStatuses: devices.map(d => ({ id: d.id, name: d.name, status: d.status })),
-    apiDevices: devices,
-    localDevices: licenseAwareStorageService.getDevices()
+    deviceStatuses: devices.map((d: any) => ({ id: d.id, name: d.name, status: d.status })),
+    statusCounts: devices.reduce((acc: Record<string, number>, d: any) => {
+      acc[d.status] = (acc[d.status] || 0) + 1
+      return acc
+    }, {} as Record<string, number>),
+    apiDevices: devices.length,
+    localDevices: licenseAwareStorageService.getDevices().length
   })
   
   // Calculate today's posts and views from real job data
   const today = new Date().toISOString().split('T')[0]
-  const todayJobs = jobs.filter(job => 
+  const todayJobs = jobs.filter((job: any) => 
     job && job.created_at && job.created_at.startsWith(today)
   )
-  const todayPosts = todayJobs.filter(job => 
-    job && (job.type === 'instagram_post_reel' || job.type === 'threads_create_post')
+  
+  console.log('📊 DASHBOARD STATS - Jobs analysis:', {
+    totalJobs: jobs.length,
+    todayJobs: todayJobs.length,
+    today: today,
+    sampleJobs: jobs.slice(0, 3),
+    jobTypes: jobs.map((j: any) => j?.type).filter(Boolean),
+    uniqueJobTypes: [...new Set(jobs.map((j: any) => j?.type).filter(Boolean))]
+  })
+  
+  // Check for different possible job type names
+  const todayPosts = todayJobs.filter((job: any) => 
+    job && (
+      job.type === 'instagram_post_reel' || 
+      job.type === 'threads_create_post' ||
+      String(job.type).includes('post')
+    )
   ).length
-  const todayViews = todayJobs.reduce((total, job) => {
-    return total + (job?.result?.views || 0)
+  
+  const todayViews = todayJobs.reduce((total: number, job: any) => {
+    return total + ((job as any)?.result?.views || (job as any)?.views || 0)
   }, 0)
+  
+  console.log('📊 DASHBOARD STATS - Posts calculation:', {
+    todayJobs: todayJobs.length,
+    todayPosts: todayPosts,
+    todayViews: todayViews,
+    postJobs: todayJobs.filter((job: any) => job?.type?.includes('post'))
+  })
   
   const isLoading = devicesLoading || statsLoading || !accountsData || !jobsData
 
   // Transform running devices for display
-  const runningDevicesList = runningDevices.map((device) => {
+  const runningDevicesList = runningDevices.map((device: any) => {
     // Calculate device-specific stats
-    const deviceJobs = jobs.filter(job => job.account_id && accounts.find(acc => acc.id === job.account_id)?.device_id === device.id)
-    const devicePosts = deviceJobs.filter(job => 
+    const deviceJobs = jobs.filter((job: any) => job.account_id && accounts.find((acc: any) => acc.id === job.account_id)?.device_id === device.id)
+    const devicePosts = deviceJobs.filter((job: any) => 
       job.type === 'instagram_post_reel' || job.type === 'threads_create_post'
     ).length
-    const deviceViews = deviceJobs.reduce((total, job) => total + (job.result?.views || 0), 0)
+    const deviceViews = deviceJobs.reduce((total: number, job: any) => total + ((job as any).result?.views || 0), 0)
     
     return {
       id: device.id.toString(),
@@ -105,8 +147,8 @@ export default function DashboardPage() {
     }
 
     // Find accounts assigned to running devices
-    const runningDeviceIds = runningDevices.map(d => d.id)
-    const assignedAccounts = accounts.filter(account => 
+    const runningDeviceIds = runningDevices.map((d: any) => d.id)
+    const assignedAccounts = accounts.filter((account: any) => 
       account.device_id && runningDeviceIds.includes(account.device_id)
     )
 
@@ -117,7 +159,7 @@ export default function DashboardPage() {
 
     // Find the first account that should be processed next
     const nextAccount = assignedAccounts[0] // For now, just take the first one
-    const device = runningDevices.find(d => d.id === nextAccount.device_id)
+    const device = runningDevices.find((d: any) => d.id === nextAccount.device_id)
     
     if (!device) {
       setNextTask(null)
@@ -147,12 +189,12 @@ export default function DashboardPage() {
         if (!prev) return null
         if (prev.countdown <= 1) {
           // Task completed, find next account
-          const currentIndex = assignedAccounts.findIndex(acc => 
+          const currentIndex = assignedAccounts.findIndex((acc: any) => 
             acc.username === prev.account
           )
           const nextIndex = (currentIndex + 1) % assignedAccounts.length
           const nextAccount = assignedAccounts[nextIndex]
-          const device = runningDevices.find(d => d.id === nextAccount.device_id)
+          const device = runningDevices.find((d: any) => d.id === nextAccount.device_id)
           
           if (!device) return null
 
@@ -182,15 +224,15 @@ export default function DashboardPage() {
   const queueItems = (() => {
     if (runningDevices.length === 0 || accounts.length === 0) return []
     
-    const runningDeviceIds = runningDevices.map(d => d.id)
+    const runningDeviceIds = runningDevices.map((d: any) => d.id)
     
     // Find accounts assigned to running devices
-    const assignedAccounts = accounts.filter(account => 
+    const assignedAccounts = accounts.filter((account: any) => 
       account.device_id && runningDeviceIds.includes(account.device_id)
     )
 
-    return assignedAccounts.map((account, index) => {
-      const device = runningDevices.find(d => d.id === account.device_id)
+    return assignedAccounts.map((account: any, index: number) => {
+      const device = runningDevices.find((d: any) => d.id === account.device_id)
       
       if (!device) return null
 
@@ -220,22 +262,22 @@ export default function DashboardPage() {
           onClick: () => router.push('/running')
         },
       }
-    }).filter((item): item is NonNullable<typeof item> => item !== null) // Remove null entries with proper typing
+    }).filter((item: any): item is NonNullable<typeof item> => item !== null) // Remove null entries with proper typing
   })()
 
   // Calculate queue stats
   const queueStats = {
-    pending: queueItems.filter(j => j && j.badge.props.status === 'pending').length,
-    running: queueItems.filter(j => j && j.badge.props.status === 'running').length,
+    pending: queueItems.filter((j: any) => j && j.badge.props.status === 'pending').length,
+    running: queueItems.filter((j: any) => j && j.badge.props.status === 'running').length,
     total: queueItems.length,
   }
 
   return (
     <LicenseBlocker action="access the dashboard">
       <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
-        {/* Main Header Section - Dark Background */}
-        <div className="relative overflow-hidden bg-gradient-to-r from-black via-gray-900 to-black">
-          <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGRlZnM+CjxwYXR0ZXJuIGlkPSJncmlkIiB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHBhdHRlcm5Vbml0cz0idXNlclNwYWNlT25Vc2UiPgo8cGF0aCBkPSJNIDQwIDAgTCAwIDAgMCA0MCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJyZ2JhKDI1NSwyNTUsMjU1LDAuMDUpIiBzdHJva2Utd2lkdGg9IjEiLz4KPC9wYXR0ZXJuPgo8L2RlZnM+CjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9InVybCgjZ3JpZCkiLz4KPHN2Zz4K')] opacity-10"></div>
+        {/* Main Header Section - Platform Colors */}
+        <PlatformHeader>
+          <div className="absolute inset-0 opacity-10 bg-[length:40px_40px] bg-[image:url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGRlZnM+CjxwYXR0ZXJuIGlkPSJncmlkIiB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHBhdHRlcm5Vbml0cz0idXNlclNwYWNlT25Vc2UiPgo8cGF0aCBkPSJNIDQwIDAgTCAwIDAgMCA0MCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJyZ2JhKDI1NSwyNTUsMjU1LDAuMDUpIiBzdHJva2Utd2lkdGg9IjEiLz4KPC9wYXR0ZXJuPgo8L2RlZnM+CjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9InVybCgjZ3JpZCkiLz4KPHN2Zz4K')]"></div>
           
           <div className="relative px-6 py-12">
             <div className="max-w-7xl mx-auto">
@@ -267,8 +309,20 @@ export default function DashboardPage() {
                   </div>
                 </div>
                 
-                <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 border border-white/20">
-                  <LicenseStatus />
+                <div className="flex items-center space-x-4">
+                  <Button
+                    onClick={refreshDashboard}
+                    variant="outline"
+                    size="sm"
+                    className="bg-white/10 text-white border-white/20 hover:bg-white/20 rounded-2xl px-4 py-2"
+                  >
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Refresh Data
+                  </Button>
+                  
+                  <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 border border-white/20">
+                    <LicenseStatus />
+                  </div>
                 </div>
               </div>
               
@@ -288,7 +342,7 @@ export default function DashboardPage() {
               </div>
             </div>
           </div>
-        </div>
+        </PlatformHeader>
 
         <div className="max-w-7xl mx-auto px-6 py-8 space-y-8">
           {/* Enhanced Summary Stats */}

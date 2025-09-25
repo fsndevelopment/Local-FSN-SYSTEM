@@ -25,6 +25,7 @@ class TemplateBase(BaseModel):
     captions_folder: Optional[str] = Field(None, description="Captions folder path")
     reels_folder: Optional[str] = Field(None, description="Reels folder path")
     stories_folder: Optional[str] = Field(None, description="Stories folder path")
+    posting_interval_minutes: int = Field(30, ge=1, description="Minutes between posts")
 
 class TemplateCreate(TemplateBase):
     """Schema for creating a new template"""
@@ -48,6 +49,7 @@ class TemplateUpdate(BaseModel):
     captions_folder: Optional[str] = None
     reels_folder: Optional[str] = None
     stories_folder: Optional[str] = None
+    posting_interval_minutes: Optional[int] = Field(None, ge=1)
 
 class TemplateResponse(TemplateBase):
     """Schema for template response"""

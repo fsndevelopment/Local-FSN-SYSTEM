@@ -39,7 +39,8 @@ export default function AddAccountPage() {
     model: "",
     device: "",
     notes: "",
-    container_number: ""
+    container_number: "",
+    account_phase: "posting" // Default to posting phase
   })
   const [showNewModelInput, setShowNewModelInput] = useState(false)
   const [newModelName, setNewModelName] = useState("")
@@ -91,7 +92,8 @@ export default function AddAccountPage() {
             model: accountToEdit.model || "",
             device: accountToEdit.device || "",
             notes: accountToEdit.notes || "",
-            container_number: accountToEdit.container_number || ""
+            container_number: accountToEdit.container_number || "",
+            account_phase: accountToEdit.account_phase || "posting" // Load the account phase
           }
           console.log("Setting form data for edit:", newFormData)
           console.log("Dropdown values - model:", newFormData.model, "device:", newFormData.device)
@@ -153,7 +155,8 @@ export default function AddAccountPage() {
         model: formData.model,
         device: formData.device,
         notes: formData.notes,
-        container_number: formData.container_number
+        container_number: formData.container_number,
+        account_phase: formData.account_phase
       })
       console.log("Form data values check:", {
         "platform exists": !!formData.platform,
@@ -165,7 +168,8 @@ export default function AddAccountPage() {
         "model exists": !!formData.model,
         "device exists": !!formData.device,
         "notes exists": !!formData.notes,
-        "container_number exists": !!formData.container_number
+        "container_number exists": !!formData.container_number,
+        "account_phase exists": !!formData.account_phase
       })
       console.log("Form data raw values:", {
         platform: `"${formData.platform}"`,
@@ -177,7 +181,8 @@ export default function AddAccountPage() {
         model: `"${formData.model}"`,
         device: `"${formData.device}"`,
         notes: `"${formData.notes}"`,
-        container_number: `"${formData.container_number}"`
+        container_number: `"${formData.container_number}"`,
+        account_phase: `"${formData.account_phase}"`
       })
       
       // Log each field individually to avoid truncation
@@ -192,6 +197,7 @@ export default function AddAccountPage() {
       console.log("device:", formData.device)
       console.log("notes:", formData.notes)
       console.log("container_number:", formData.container_number)
+      console.log("account_phase:", formData.account_phase)
       console.log("=== END FIELD VALUES ===")
       console.log(isEditMode ? "Updating account:" : "Adding account:", formData)
       
@@ -212,6 +218,7 @@ export default function AddAccountPage() {
         twoFactorCode: formData.twoFactorCode || undefined,
         password: formData.password || undefined,
         container_number: formData.container_number || undefined,
+        account_phase: formData.account_phase as "warmup" | "posting", // Include the account phase
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       }
@@ -526,6 +533,36 @@ export default function AddAccountPage() {
                   </SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="account_phase">Account Phase</Label>
+              <Select 
+                value={formData.account_phase} 
+                onValueChange={(value: string) => handleInputChange('account_phase', value)}
+                disabled={isSubmitted}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select account phase" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="posting">
+                    <div className="flex items-center">
+                      <MessageCircle className="w-4 h-4 mr-2" />
+                      Posting Phase
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="warmup">
+                    <div className="flex items-center">
+                      <User className="w-4 h-4 mr-2" />
+                      Warmup Phase
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Posting: Ready to post content. Warmup: Building account credibility through engagement.
+              </p>
             </div>
 
             <div className="space-y-2">

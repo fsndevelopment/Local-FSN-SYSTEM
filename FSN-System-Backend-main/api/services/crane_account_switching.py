@@ -556,7 +556,7 @@ class CraneAccountSwitching:
             options = XCUITestOptions()
             options.platform_name = "iOS"
             options.device_name = "iPhone"
-            options.udid = device_udid
+            options.udid = str(device_udid)  # Ensure UDID is string
             options.no_reset = True
             options.full_reset = False
             options.new_command_timeout = 300

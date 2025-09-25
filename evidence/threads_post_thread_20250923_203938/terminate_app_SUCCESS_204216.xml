@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<AppiumAUT>
+  <XCUIElementTypeApplication type="XCUIElementTypeApplication" name=" " label=" " enabled="true" visible="true" accessible="false" x="0" y="0" width="375" height="667" index="0">
+    <XCUIElementTypeWindow type="XCUIElementTypeWindow" enabled="true" visible="false" accessible="false" x="0" y="0" width="375" height="667" index="0">
+      <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="0" y="0" width="375" height="667" index="0">
+        <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="0" y="0" width="375" height="667" index="0"/>
+      </XCUIElementTypeOther>
+      <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="0" y="0" width="375" height="667" index="1"/>
+    </XCUIElementTypeWindow>
+    <XCUIElementTypeWindow type="XCUIElementTypeWindow" enabled="true" visible="true" accessible="false" x="0" y="0" width="375" height="667" index="1">
+      <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="0" y="0" width="375" height="667" index="0">
+        <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="0" y="0" width="375" height="667" index="0">
+          <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="0" y="0" width="375" height="100" index="0"/>
+        </XCUIElementTypeOther>
+        <XCUIElementTypeOther type="XCUIElementTypeOther" name="Home screen icons" enabled="true" visible="true" accessible="false" x="0" y="0" width="375" height="667" index="1">
+          <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="0" y="0" width="375" height="667" index="0">
+            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="0" y="0" width="375" height="667" index="0">
+              <XCUIElementTypeIcon type="XCUIElementTypeIcon" enabled="true" visible="true" accessible="false" x="0" y="0" width="0" height="0" index="0">
+                <XCUIElementTypeIcon type="XCUIElementTypeIcon" name="Settings" label="Settings" enabled="true" visible="true" accessible="true" x="23" y="28" width="69" height="88" index="0"/>
+                <XCUIElementTypeIcon type="XCUIElementTypeIcon" value="12 new items" name="Threads" label="Threads" enabled="true" visible="true" accessible="true" x="110" y="17" width="77" height="99" index="1"/>
+                <XCUIElementTypeIcon type="XCUIElementTypeIcon" name="Shadowrocket" label="Shadowrocket" enabled="true" visible="true" accessible="true" x="185" y="28" width="92" height="90" index="2"/>
+                <XCUIElementTypeIcon type="XCUIElementTypeIcon" name="AltStore" label="AltStore" enabled="true" visible="true" accessible="true" x="284" y="28" width="68" height="88" index="3"/>
+                <XCUIElementTypeIcon type="XCUIElementTypeIcon" name="Dopamine" label="Dopamine" enabled="true" visible="true" accessible="true" x="18" y="116" width="79" height="88" index="4"/>
+                <XCUIElementTypeIcon type="XCUIElementTypeIcon" name="Sileo" label="Sileo" enabled="true" visible="true" accessible="true" x="112" y="116" width="64" height="88" index="5"/>
+                <XCUIElementTypeIcon type="XCUIElementTypeIcon" name="Instagram" label="Instagram" enabled="true" visible="true" accessible="true" x="192" y="116" width="79" height="88" index="6"/>
+                <XCUIElementTypeIcon type="XCUIElementTypeIcon" name="Telegram" label="Telegram" enabled="true" visible="true" accessible="true" x="281" y="116" width="74" height="88" index="7"/>
+                <XCUIElementTypeIcon type="XCUIElementTypeIcon" name="WebDriverAgentRunner-Runner" label="WebDriverAgentRunner-Runner" enabled="true" visible="true" accessible="true" x="12" y="204" width="91" height="90" index="8"/>
+              </XCUIElementTypeIcon>
+              <XCUIElementTypePageIndicator type="XCUIElementTypePageIndicator" value="Page 1 of 1" name="Page control" enabled="true" visible="false" accessible="false" x="148" y="551" width="80" height="25" index="1"/>
+              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="0" y="571" width="375" height="96" index="2">
+                <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="-21" y="575" width="417" height="167" index="0"/>
+                <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="0" y="574" width="375" height="3" index="1">
+                  <XCUIElementTypeImage type="XCUIElementTypeImage" enabled="true" visible="true" accessible="false" x="0" y="574" width="375" height="3" index="0"/>
+                </XCUIElementTypeOther>
+                <XCUIElementTypeOther type="XCUIElementTypeOther" name="Dock" label="Dock" enabled="true" visible="true" accessible="false" x="0" y="575" width="375" height="92" index="2">
+                  <XCUIElementTypeIcon type="XCUIElementTypeIcon" name="Phone" label="Phone" enabled="true" visible="true" accessible="true" x="25" y="589" width="64" height="64" index="0"/>
+                  <XCUIElementTypeIcon type="XCUIElementTypeIcon" name="Safari" label="Safari" enabled="true" visible="true" accessible="true" x="112" y="589" width="64" height="64" index="1"/>
+                  <XCUIElementTypeIcon type="XCUIElementTypeIcon" name="Messages" label="Messages" enabled="true" visible="true" accessible="true" x="199" y="589" width="64" height="64" index="2"/>
+                  <XCUIElementTypeIcon type="XCUIElementTypeIcon" name="Music" label="Music" enabled="true" visible="true" accessible="true" x="286" y="589" width="64" height="64" index="3"/>
+                </XCUIElementTypeOther>
+              </XCUIElementTypeOther>
+            </XCUIElementTypeOther>
+          </XCUIElementTypeOther>
+        </XCUIElementTypeOther>
+        <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="0" y="0" width="375" height="667" index="2"/>
+      </XCUIElementTypeOther>
+    </XCUIElementTypeWindow>
+    <XCUIElementTypeWindow type="XCUIElementTypeWindow" enabled="true" visible="false" accessible="false" x="0" y="0" width="375" height="667" index="2">
+      <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="0" y="0" width="375" height="667" index="0">
+        <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="true" x="468" y="-100" width="7" height="7" index="0"/>
+      </XCUIElementTypeOther>
+    </XCUIElementTypeWindow>
+    <XCUIElementTypeWindow type="XCUIElementTypeWindow" enabled="true" visible="false" accessible="false" x="0" y="0" width="750" height="1334" index="3">
+      <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="0" y="0" width="750" height="1334" index="0"/>
+    </XCUIElementTypeWindow>
+    <XCUIElementTypeWindow type="XCUIElementTypeWindow" enabled="true" visible="false" accessible="false" x="0" y="0" width="750" height="1334" index="4">
+      <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="0" y="0" width="750" height="1334" index="0">
+        <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="0" y="0" width="750" height="1334" index="0">
+          <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="0" y="0" width="750" height="1334" index="0">
+            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="0" y="0" width="750" height="1334" index="0">
+              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="0" y="0" width="750" height="1334" index="0"/>
+              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="0" y="0" width="750" height="1334" index="1"/>
+              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="0" y="0" width="750" height="1334" index="2"/>
+              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="0" y="0" width="750" height="1334" index="3"/>
+              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="0" y="0" width="750" height="1334" index="4"/>
+              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="0" y="0" width="750" height="1334" index="5"/>
+              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="0" y="0" width="750" height="1334" index="6"/>
+              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="0" y="0" width="750" height="1334" index="7"/>
+            </XCUIElementTypeOther>
+          </XCUIElementTypeOther>
+        </XCUIElementTypeOther>
+        <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="0" y="0" width="750" height="1334" index="1"/>
+      </XCUIElementTypeOther>
+    </XCUIElementTypeWindow>
+    <XCUIElementTypeWindow type="XCUIElementTypeWindow" enabled="true" visible="true" accessible="false" x="0" y="0" width="375" height="667" index="5">
+      <XCUIElementTypeStatusBar type="XCUIElementTypeStatusBar" enabled="true" visible="true" accessible="false" x="0" y="0" width="375" height="20" index="0">
+        <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="0" y="0" width="375" height="20" index="0">
+          <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="0" y="0" width="375" height="20" index="0">
+            <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="No SIM" name="No SIM" label="No SIM" enabled="true" visible="true" accessible="true" x="6" y="3" width="42" height="15" index="0"/>
+            <XCUIElementTypeOther type="XCUIElementTypeOther" value="SSID, 3 of 3 Wi-Fi bars" name="3 of 3 Wi-Fi bars" enabled="true" visible="true" accessible="true" x="51" y="4" width="16" height="12" index="1"/>
+            <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="11:42 AM" name="11:42 AM" label="11:42 AM" enabled="true" visible="true" accessible="true" x="160" y="3" width="55" height="15" index="2"/>
+            <XCUIElementTypeOther type="XCUIElementTypeOther" value="Charging" name="100% battery power" label="100% battery power" enabled="true" visible="true" accessible="true" x="345" y="4" width="25" height="12" index="3"/>
+          </XCUIElementTypeOther>
+        </XCUIElementTypeOther>
+      </XCUIElementTypeStatusBar>
+    </XCUIElementTypeWindow>
+    <XCUIElementTypeWindow type="XCUIElementTypeWindow" enabled="true" visible="false" accessible="false" x="0" y="0" width="375" height="667" index="6">
+      <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="0" y="0" width="375" height="667" index="0"/>
+    </XCUIElementTypeWindow>
+    <XCUIElementTypeWindow type="XCUIElementTypeWindow" enabled="true" visible="false" accessible="false" x="0" y="0" width="375" height="667" index="7">
+      <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="0" y="0" width="375" height="667" index="0"/>
+    </XCUIElementTypeWindow>
+    <XCUIElementTypeWindow type="XCUIElementTypeWindow" enabled="true" visible="false" accessible="false" x="0" y="0" width="375" height="667" index="8">
+      <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="0" y="0" width="375" height="667" index="0"/>
+    </XCUIElementTypeWindow>
+    <XCUIElementTypeWindow type="XCUIElementTypeWindow" enabled="true" visible="false" accessible="false" x="0" y="0" width="375" height="667" index="9">
+      <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="0" y="0" width="375" height="667" index="0">
+        <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="0" y="0" width="375" height="667" index="0"/>
+        <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="0" y="667" width="375" height="216" index="1"/>
+      </XCUIElementTypeOther>
+    </XCUIElementTypeWindow>
+  </XCUIElementTypeApplication>
+</AppiumAUT>

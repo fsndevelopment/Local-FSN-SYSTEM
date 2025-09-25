@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<AppiumAUT>
+  <XCUIElementTypeApplication type="XCUIElementTypeApplication" name="App Store" label="App Store" enabled="true" visible="true" accessible="false" x="0" y="0" width="375" height="667" index="0">
+    <XCUIElementTypeWindow type="XCUIElementTypeWindow" enabled="true" visible="true" accessible="false" x="0" y="0" width="375" height="667" index="0">
+      <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="0" y="0" width="375" height="667" index="0">
+        <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="0" y="0" width="375" height="667" index="0">
+          <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="0" y="0" width="375" height="667" index="0">
+            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="0" y="0" width="375" height="667" index="0">
+              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="0" y="0" width="375" height="667" index="0">
+                <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="0" y="0" width="375" height="667" index="0">
+                  <XCUIElementTypeNavigationBar type="XCUIElementTypeNavigationBar" name="Today" enabled="true" visible="true" accessible="false" x="0" y="20" width="375" height="44" index="0">
+                    <XCUIElementTypeButton type="XCUIElementTypeButton" name="Today" label="Today" enabled="true" visible="true" accessible="true" x="0" y="20" width="77" height="44" index="0"/>
+                    <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="0" y="20" width="375" height="44" index="1"/>
+                  </XCUIElementTypeNavigationBar>
+                  <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="0" y="0" width="375" height="667" index="1">
+                    <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="0" y="0" width="375" height="667" index="0">
+                      <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="0" y="0" width="375" height="667" index="0">
+                        <XCUIElementTypeCollectionView type="XCUIElementTypeCollectionView" enabled="true" visible="true" accessible="false" x="0" y="0" width="375" height="667" index="0">
+                          <XCUIElementTypeCell type="XCUIElementTypeCell" name="UIA.AppStore.ShelfItem.productTopLockup" enabled="true" visible="true" accessible="false" x="0" y="64" width="375" height="138" index="0">
+                            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="0" y="64" width="375" height="138" index="0">
+                              <XCUIElementTypeImage type="XCUIElementTypeImage" value="Alibaba.com B2B Trade App" name="UIA.AppStore.ProductLockupCollection.IconArtwork" label="Artwork" enabled="true" visible="true" accessible="true" x="20" y="64" width="118" height="118" index="0"/>
+                              <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="Alibaba.com B2B Trade App" name="UIA.AppStore.ProductLockupCollection.titleLabel" label="Alibaba.com B2B Trade App" enabled="true" visible="true" accessible="true" x="154" y="64" width="176" height="53" index="1"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="UIA.AppStore.ProductLockupCollection.DeveloperLabel" label="Hangzhou Alibaba International Information Technology Co., Ltd." enabled="true" visible="true" accessible="true" x="154" y="120" width="201" height="18" index="2"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="UIA.AppStore.OfferButton" label="get" enabled="true" visible="true" accessible="true" x="154" y="152" width="74" height="30" index="3"/>
+                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="UIA.AppStore.ProductLockupCollection.shareButton" label="Share" enabled="true" visible="true" accessible="true" x="332" y="154" width="23" height="26" index="4">
+                                <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" enabled="true" visible="false" accessible="false" x="332" y="154" width="0" height="1" index="0"/>
+                              </XCUIElementTypeButton>
+                            </XCUIElementTypeOther>
+                          </XCUIElementTypeCell>
+                          <XCUIElementTypeScrollView type="XCUIElementTypeScrollView" enabled="true" visible="true" accessible="false" x="20" y="202" width="335" height="94" index="1">
+                            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="20" y="202" width="105" height="1" index="0">
+                              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="20" y="202" width="105" height="1" index="0"/>
+                            </XCUIElementTypeOther>
+                            <XCUIElementTypeCell type="XCUIElementTypeCell" name="UIA.AppStore.ShelfItem.productBadge" enabled="true" visible="true" accessible="false" x="20" y="202" width="105" height="94" index="1">
+                              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="20" y="202" width="105" height="94" index="0">
+                                <XCUIElementTypeButton type="XCUIElementTypeButton" name="3.3K RATINGS, 4.7" label="3.3K RATINGS, 4.7" enabled="true" visible="true" accessible="true" x="20" y="202" width="105" height="94" index="0"/>
+                              </XCUIElementTypeOther>
+                            </XCUIElementTypeCell>
+                            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="124" y="202" width="1" height="94" index="2">
+                              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="124" y="229" width="1" height="40" index="0"/>
+                            </XCUIElementTypeOther>
+                            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="125" y="202" width="105" height="1" index="3">
+                              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="125" y="202" width="105" height="1" index="0"/>
+                            </XCUIElementTypeOther>
+                            <XCUIElementTypeCell type="XCUIElementTypeCell" name="UIA.AppStore.ShelfItem.productBadge" enabled="true" visible="true" accessible="false" x="125" y="202" width="105" height="94" index="4">
+                              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="125" y="202" width="105" height="94" index="0">
+                                <XCUIElementTypeButton type="XCUIElementTypeButton" name="AGE, 17+, Years Old" label="AGE, 17+, Years Old" enabled="true" visible="true" accessible="true" x="125" y="202" width="105" height="94" index="0"/>
+                              </XCUIElementTypeOther>
+                            </XCUIElementTypeCell>
+                            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="229" y="202" width="1" height="94" index="5">
+                              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="229" y="229" width="1" height="40" index="0"/>
+                            </XCUIElementTypeOther>
+                            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="230" y="202" width="105" height="1" index="6">
+                              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="230" y="202" width="105" height="1" index="0"/>
+                            </XCUIElementTypeOther>
+                            <XCUIElementTypeCell type="XCUIElementTypeCell" name="UIA.AppStore.ShelfItem.productBadge" enabled="true" visible="true" accessible="false" x="230" y="202" width="105" height="94" index="7">
+                              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="230" y="202" width="105" height="94" index="0">
+                                <XCUIElementTypeButton type="XCUIElementTypeButton" name="CHART, 25, No., Shopping" label="CHART, 25, No., Shopping" enabled="true" visible="true" accessible="true" x="230" y="202" width="105" height="94" index="0"/>
+                              </XCUIElementTypeOther>
+                            </XCUIElementTypeCell>
+                            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="334" y="202" width="1" height="94" index="8">
+                              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="334" y="229" width="1" height="40" index="0"/>
+                            </XCUIElementTypeOther>
+                            <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="335" y="202" width="136" height="1" index="9">
+                              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="335" y="202" width="136" height="1" index="0"/>
+                            </XCUIElementTypeOther>
+                            <XCUIElementTypeCell type="XCUIElementTypeCell" name="UIA.AppStore.ShelfItem.productBadge" enabled="true" visible="true" accessible="false" x="335" y="202" width="136" height="94" index="10">
+                              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="335" y="202" width="136" height="94" index="0">
+                                <XCUIElementTypeButton type="XCUIElementTypeButton" name="DEVELOPER, Artwork, Hangzhou Alibaba International Information Technology Co., Ltd." label="DEVELOPER, Artwork, Hangzhou Alibaba International Information Technology Co., Ltd." enabled="true" visible="true" accessible="true" x="335" y="202" width="136" height="94" index="0"/>
+                              </XCUIElementTypeOther>
+                            </XCUIElementTypeCell>
+                          </XCUIElementTypeScrollView>
+                          <XCUIElementTypeScrollView type="XCUIElementTypeScrollView" enabled="true" visible="true" accessible="false" x="20" y="312" width="335" height="386" index="2">
+                            <XCUIElementTypeCell type="XCUIElementTypeCell" name="UIA.AppStore.ShelfItem.productMediaItem.Shelf=Preview" enabled="true" visible="true" accessible="false" x="20" y="312" width="217" height="385" index="0">
+                              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="20" y="312" width="217" height="385" index="0">
+                                <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="20" y="312" width="217" height="385" index="0">
+                                  <XCUIElementTypeImage type="XCUIElementTypeImage" name="Artwork" label="Artwork" enabled="true" visible="true" accessible="true" x="20" y="312" width="217" height="385" index="0"/>
+                                </XCUIElementTypeOther>
+                              </XCUIElementTypeOther>
+                            </XCUIElementTypeCell>
+                            <XCUIElementTypeCell type="XCUIElementTypeCell" name="UIA.AppStore.ShelfItem.productMediaItem.Shelf=Preview" enabled="true" visible="true" accessible="false" x="246" y="312" width="217" height="385" index="1">
+                              <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="246" y="312" width="217" height="385" index="0">
+                                <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="246" y="312" width="217" height="385" index="0">
+                                  <XCUIElementTypeImage type="XCUIElementTypeImage" name="Artwork" label="Artwork" enabled="true" visible="true" accessible="true" x="246" y="312" width="217" height="385" index="0"/>
+                                </XCUIElementTypeOther>
+                              </XCUIElementTypeOther>
+                            </XCUIElementTypeCell>
+                          </XCUIElementTypeScrollView>
+                          <XCUIElementTypeOther type="XCUIElementTypeOther" value="0%" name="Vertical scroll bar, 7 pages" label="Vertical scroll bar, 7 pages" enabled="true" visible="true" accessible="false" x="342" y="64" width="30" height="554" index="3"/>
+                          <XCUIElementTypeOther type="XCUIElementTypeOther" value="0%" name="Horizontal scroll bar, 1 page" label="Horizontal scroll bar, 1 page" enabled="true" visible="true" accessible="false" x="0" y="585" width="375" height="30" index="4"/>
+                        </XCUIElementTypeCollectionView>
+                      </XCUIElementTypeOther>
+                    </XCUIElementTypeOther>
+                  </XCUIElementTypeOther>
+                </XCUIElementTypeOther>
+              </XCUIElementTypeOther>
+            </XCUIElementTypeOther>
+            <XCUIElementTypeTabBar type="XCUIElementTypeTabBar" name="Tab Bar" label="Tab Bar" enabled="true" visible="true" accessible="false" x="0" y="618" width="375" height="49" index="1">
+              <XCUIElementTypeButton type="XCUIElementTypeButton" value="1" name="UIA.AppStore.TabBar.today" label="Today" enabled="true" visible="true" accessible="true" x="2" y="619" width="71" height="48" index="0"/>
+              <XCUIElementTypeButton type="XCUIElementTypeButton" name="UIA.AppStore.TabBar.games" label="Games" enabled="true" visible="true" accessible="true" x="77" y="619" width="71" height="48" index="1"/>
+              <XCUIElementTypeButton type="XCUIElementTypeButton" name="UIA.AppStore.TabBar.apps" label="Apps" enabled="true" visible="true" accessible="true" x="152" y="619" width="71" height="48" index="2"/>
+              <XCUIElementTypeButton type="XCUIElementTypeButton" value="1 item" name="UIA.AppStore.TabBar.arcade" label="Arcade" enabled="true" visible="true" accessible="true" x="227" y="619" width="71" height="48" index="3"/>
+              <XCUIElementTypeButton type="XCUIElementTypeButton" name="UIA.AppStore.TabBar.search" label="Search" enabled="true" visible="true" accessible="true" x="302" y="619" width="71" height="48" index="4"/>
+            </XCUIElementTypeTabBar>
+          </XCUIElementTypeOther>
+        </XCUIElementTypeOther>
+      </XCUIElementTypeOther>
+    </XCUIElementTypeWindow>
+    <XCUIElementTypeWindow type="XCUIElementTypeWindow" enabled="true" visible="false" accessible="false" x="0" y="0" width="375" height="667" index="1">
+      <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="0" y="0" width="375" height="667" index="0">
+        <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="0" y="0" width="375" height="667" index="0"/>
+        <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="false" accessible="false" x="0" y="667" width="375" height="216" index="1"/>
+      </XCUIElementTypeOther>
+    </XCUIElementTypeWindow>
+  </XCUIElementTypeApplication>
+</AppiumAUT>

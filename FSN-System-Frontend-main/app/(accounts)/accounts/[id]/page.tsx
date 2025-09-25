@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { HeroCard } from "@/components/hero-card"
 import { StatusBadge } from "@/components/status-badge"
@@ -14,6 +14,7 @@ import { Heart, MessageCircle, Eye, BarChart3, SettingsIcon, User, Scan, Externa
 import { scanAccount } from "@/lib/api/endpoints"
 import { humanizeDate, getPostingDay } from "@/lib/utils/time"
 import type { Account } from "@/lib/types"
+import { licenseAwareStorageService } from "@/lib/services/license-aware-storage-service"
 
 // Mock account data with new fields
 const accountData: Account & {
@@ -87,6 +88,13 @@ export default function AccountDetailPage({ params }: { params: { id: string } }
   const [activeTab, setActiveTab] = useState("overview")
   const [isScanning, setIsScanning] = useState(false)
   const { toast } = useToast()
+  const [phase, setPhase] = useState<'warmup' | 'posting'>("posting")
+
+  // Load saved phase on mount
+  useEffect(() => {
+    const saved = licenseAwareStorageService.getAccountPhase(params.id)
+    setPhase(saved)
+  }, [params.id])
 
   const handleScanProfile = async () => {
     setIsScanning(true)
@@ -116,6 +124,32 @@ export default function AccountDetailPage({ params }: { params: { id: string } }
           <StatusBadge status={accountData.status}>{accountData.status}</StatusBadge>
         </div>
       </HeroCard>
+
+      {/* Account Phase Selector */}
+      <div className="bg-card rounded-2xl shadow p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-semibold">Account Phase</h3>
+        </div>
+        <div className="flex items-center gap-3">
+          <Label className="min-w-[120px]">Phase</Label>
+          <Select
+            value={phase}
+            onValueChange={(val: 'warmup' | 'posting') => {
+              setPhase(val)
+              licenseAwareStorageService.setAccountPhase(params.id, val)
+              toast({ title: 'Phase saved', description: `Account set to ${val}.` })
+            }}
+          >
+            <SelectTrigger className="w-[220px]">
+              <SelectValue placeholder="Select phase" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="posting">Posting</SelectItem>
+              <SelectItem value="warmup">Warmup</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
 
       {/* Tab Navigation */}
       <div className="flex space-x-2">

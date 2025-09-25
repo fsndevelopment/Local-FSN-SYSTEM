@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import React, { useState, useEffect, useMemo, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -63,13 +63,15 @@ import { RunningDevice, Template } from "@/lib/types"
 import { cn } from "@/lib/utils"
 import { useDevices } from "@/lib/hooks/use-devices"
 import { useJobs } from "@/lib/hooks/use-jobs"
+import { useQueryClient } from '@tanstack/react-query'
+import { deviceQueryKeys } from '@/lib/api/devices'
 import { LicenseBlocker } from "@/components/license-blocker"
 import { HeroCard } from "@/components/hero-card"
 import { licenseAwareStorageService } from "@/lib/services/license-aware-storage-service"
 import { PlatformSwitch } from "@/components/platform-switch"
 import { GlobalSearchBar } from "@/components/search/global-search-bar"
+import { PlatformHeader } from "@/components/platform-header"
 import { useWebSocketContext } from "@/lib/providers/websocket-provider"
-import { useRef } from "react"
 import { AddDeviceDialog } from "@/components/add-device-dialog"
 
 // Wave Animation Component
@@ -225,9 +227,17 @@ const MorphingButton = ({ device, startingDevices, stoppingDevices, onStart, onP
 }
 
 export default function RunningPage() {
+
   // Use API hooks
   const { data: apiDevicesResponse, isLoading, refetch } = useDevices()
   const { data: jobsData } = useJobs()
+  const queryClient = useQueryClient()
+  
+  // Force refresh devices by invalidating cache
+  const forceRefreshDevices = () => {
+    console.log('🔄 Force refreshing devices...')
+    queryClient.invalidateQueries({ queryKey: deviceQueryKeys.lists() })
+  }
   
   // Handle both array format and paginated response format
   const apiDevices = Array.isArray(apiDevicesResponse) 
@@ -242,6 +252,10 @@ export default function RunningPage() {
   const [mockDevices, setMockDevices] = useState<any[]>([])
   const [templates, setTemplates] = useState<any[]>([])
   const [deviceTemplates, setDeviceTemplates] = useState<Record<string, string>>({})
+  // Warmup orchestration state
+  const [warmupTemplates, setWarmupTemplates] = useState<any[]>([])
+  const [deviceWarmupTemplates, setDeviceWarmupTemplates] = useState<Record<string, string>>({})
+  const [deviceWarmupDays, setDeviceWarmupDays] = useState<Record<string, number>>({})
   
   // Device loading states
   const [startingDevices, setStartingDevices] = useState<Set<string>>(new Set())
@@ -250,6 +264,43 @@ export default function RunningPage() {
   
   // Real-time progress tracking
   const [deviceProgress, setDeviceProgress] = useState<Record<string, { progress: number, currentAction: string, checkpoint: number, timestamp?: number }>>({})  
+  
+  // Track active username for each device
+  const [activeUsernames, setActiveUsernames] = useState<Record<string, { username: string, account_id: string, timestamp: number }>>({})
+
+  // Instant status overrides from WebSocket (e.g., 'active' -> 'running')
+  const [deviceStatusOverrides, setDeviceStatusOverrides] = useState<Record<string, 'running' | 'paused' | 'stopped' | 'error'>>({})
+
+  // Load persisted running device overrides on mount (survives navigation)
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('fsn_running_devices')
+      if (raw) {
+        const parsed = JSON.parse(raw || '{}') || {}
+        setDeviceStatusOverrides(parsed)
+      }
+    } catch {}
+  }, [])
+  
+  // Track processed WebSocket messages to prevent infinite loops (using ref to avoid state updates)
+  const processedMessagesRef = useRef<Set<string>>(new Set())
+  
+  // Account Status Modal state
+  const [accountStatus, setAccountStatus] = useState<{ open: boolean, deviceId?: string, data?: any }>(
+    { open: false }
+  )
+  
+  // View switching for accounts modal (posting vs warmup)
+  const [accountsView, setAccountsView] = useState<'posting' | 'warmup'>('posting')
+  
+  // Real-time account status updates
+  const [accountStatusData, setAccountStatusData] = useState<Record<string, any>>({})
+  
+  // Countdown timers for cooldowns
+  const [countdownTimers, setCountdownTimers] = useState<Record<string, number>>({})
+  
+  // Warmup countdown timers for scrolling duration
+  const [warmupCountdownTimers, setWarmupCountdownTimers] = useState<Record<string, number>>({})
   
   // Error dialog state
   const [errorDialog, setErrorDialog] = useState<{
@@ -269,6 +320,9 @@ export default function RunningPage() {
   // Use jobs WebSocket for job updates instead of main WebSocket
   const [ws, setWs] = useState<WebSocket | null>(null)
   const wsRef = useRef<WebSocket | null>(null)
+  
+  // Account status polling interval
+  const accountStatusIntervalRef = useRef<NodeJS.Timeout | null>(null)
   
   // Keep the main WebSocket for device status updates
   const websocket = useWebSocketContext()
@@ -298,18 +352,24 @@ export default function RunningPage() {
   
   // Use the existing main WebSocket for job updates (no separate Jobs WebSocket needed)
   
-  // Polling for job updates as backup
+  // Polling for job updates as backup (only when WebSocket is not connected)
   useEffect(() => {
     let interval: NodeJS.Timeout
     
     const pollJobUpdates = async () => {
+      // Skip polling if WebSocket is connected to avoid conflicts
+      if (websocket?.isConnected) {
+        console.log('🔌 Skipping polling - WebSocket is connected')
+        return
+      }
+      
       try {
         const response = await fetch('http://localhost:8000/api/v1/jobs', {
-          signal: AbortSignal.timeout(5000) // 5 second timeout
+          signal: AbortSignal.timeout(10000) // 10 second timeout (increased from 5)
         })
         if (response.ok) {
           const data = await response.json()
-          console.log('📊 POLLING RESPONSE:', data)
+          console.log('📊 POLLING RESPONSE (WebSocket disconnected):', data)
           
           // Mac Agent returns { active_jobs: [...], completed_jobs: [...] }
           console.log('📊 ALL ACTIVE JOBS:', data.active_jobs)
@@ -387,13 +447,107 @@ export default function RunningPage() {
       }
     }
     
-    // Poll every 2 seconds
-    interval = setInterval(pollJobUpdates, 2000)
+    // Poll every 5 seconds (reduced frequency to avoid overloading backend)
+    interval = setInterval(pollJobUpdates, 5000)
     
     return () => {
       if (interval) clearInterval(interval)
     }
-  }, [])
+  }, [websocket?.isConnected]) // Re-run when WebSocket connection changes
+  
+  // Poll account status when modal is open
+  useEffect(() => {
+    if (accountStatus.open && accountStatus.deviceId) {
+      // Start polling every 3 seconds
+      accountStatusIntervalRef.current = setInterval(() => {
+        refreshAccountStatus(accountStatus.deviceId!)
+      }, 3000)
+      
+      return () => {
+        if (accountStatusIntervalRef.current) {
+          clearInterval(accountStatusIntervalRef.current)
+          accountStatusIntervalRef.current = null
+        }
+      }
+    }
+  }, [accountStatus.open, accountStatus.deviceId])
+
+  // Countdown timer effect - updates every second
+  useEffect(() => {
+    if (!accountStatus.open) return
+
+    const interval = setInterval(() => {
+      // Recalculate countdown based on current time and last_post_at
+      const currentData = accountStatusData[accountStatus.deviceId!] || accountStatus.data
+      if (!currentData?.accounts) return
+
+      const newTimers: Record<string, number> = {}
+      const newWarmupTimers: Record<string, number> = {}
+      const postingIntervalMinutes = currentData.posting_interval_minutes || 30 // Default 30 minutes
+      
+      currentData.accounts.forEach((acc: any) => {
+        const accountKey = acc.id || acc.username
+        
+        // Handle posting cooldown timers
+        if (acc.last_post_at) {
+          const lastPostTime = new Date(acc.last_post_at).getTime()
+          const currentTime = new Date().getTime()
+          const elapsedMinutes = (currentTime - lastPostTime) / (1000 * 60)
+          const remainingMinutes = postingIntervalMinutes - elapsedMinutes
+          
+          if (remainingMinutes > 0) {
+            const countdownSeconds = Math.ceil(remainingMinutes * 60)
+            newTimers[accountKey] = countdownSeconds
+          }
+        }
+        
+        // Handle warmup countdown timers (for scrolling duration)
+        if (acc.account_phase === 'warmup' && acc.warmup_stats?.scroll_start_time) {
+          const scrollStartTime = new Date(acc.warmup_stats.scroll_start_time).getTime()
+          const currentTime = new Date().getTime()
+          const elapsedSeconds = Math.floor((currentTime - scrollStartTime) / 1000)
+          const scrollDurationMinutes = acc.warmup_stats.scroll_duration_minutes || 10
+          const totalScrollSeconds = scrollDurationMinutes * 60
+          
+          if (elapsedSeconds < totalScrollSeconds) {
+            const remainingSeconds = Math.max(0, totalScrollSeconds - elapsedSeconds)
+            newWarmupTimers[accountKey] = remainingSeconds
+          }
+        }
+      })
+      
+      setCountdownTimers(newTimers)
+      setWarmupCountdownTimers(newWarmupTimers)
+    }, 1000) // Update every second
+
+    return () => clearInterval(interval)
+  }, [accountStatus.open, accountStatusData, accountStatus.data, accountStatus.deviceId])
+
+  // Initialize countdown timers when account status data changes
+  useEffect(() => {
+    if (!accountStatus.open || !accountStatus.deviceId) return
+
+    const currentData = accountStatusData[accountStatus.deviceId!] || accountStatus.data
+    if (!currentData?.accounts) return
+
+    const newTimers: Record<string, number> = {}
+    const postingIntervalMinutes = currentData.posting_interval_minutes || 30 // Default 30 minutes
+    
+    currentData.accounts.forEach((acc: any) => {
+      if (acc.last_post_at) {
+        const lastPostTime = new Date(acc.last_post_at).getTime()
+        const currentTime = new Date().getTime()
+        const elapsedMinutes = (currentTime - lastPostTime) / (1000 * 60)
+        const remainingMinutes = postingIntervalMinutes - elapsedMinutes
+        
+        if (remainingMinutes > 0) {
+          newTimers[acc.id || acc.username] = Math.ceil(remainingMinutes * 60) // Convert to seconds
+        }
+      }
+    })
+    
+    setCountdownTimers(prev => ({ ...prev, ...newTimers }))
+  }, [accountStatusData, accountStatus.data, accountStatus.open, accountStatus.deviceId])
   
   useEffect(() => {
     const loadData = async () => {
@@ -402,9 +556,14 @@ export default function RunningPage() {
         const savedDevices = licenseAwareStorageService.getDevices()
         const savedTemplates = await licenseAwareStorageService.getTemplates()
         const savedDeviceTemplates = licenseAwareStorageService.getDeviceTemplates()
+        const savedWarmupTemplates = await licenseAwareStorageService.getWarmupTemplates()
+        const savedDeviceWarmupTemplates = licenseAwareStorageService.getDeviceWarmupTemplates()
+        const savedDeviceWarmupDays = (licenseAwareStorageService as any).getItem?.('deviceWarmupDays') || {}
         
         console.log('🔍 RUNNING PAGE - Loaded accounts:', savedAccounts)
+        console.log('🔍 RUNNING PAGE - Account device assignments:', savedAccounts.map((acc: any) => ({ username: acc.username, device: acc.device, device_id: acc.device_id })))
         console.log('🔍 RUNNING PAGE - Loaded mock devices:', savedDevices)
+        console.log('🔍 RUNNING PAGE - Device IDs:', savedDevices.map((d: any) => ({ id: d.id, name: d.name })))
         console.log('🔍 RUNNING PAGE - Loaded templates:', savedTemplates)
         console.log('🔍 RUNNING PAGE - Loaded device templates:', savedDeviceTemplates)
         
@@ -412,6 +571,13 @@ export default function RunningPage() {
         setMockDevices(savedDevices)
         setTemplates(savedTemplates)
         setDeviceTemplates(savedDeviceTemplates)
+        console.log('🔍 RUNNING PAGE - Loaded warmup templates:', savedWarmupTemplates)
+        console.log('🔍 RUNNING PAGE - Loaded device warmup templates:', savedDeviceWarmupTemplates)
+        console.log('🔍 RUNNING PAGE - Loaded device warmup days:', savedDeviceWarmupDays)
+        
+        setWarmupTemplates(savedWarmupTemplates)
+        setDeviceWarmupTemplates(savedDeviceWarmupTemplates || {})
+        setDeviceWarmupDays(savedDeviceWarmupDays || {})
       } catch (error) {
         console.error('Failed to load data:', error)
         setAccounts([])
@@ -484,11 +650,47 @@ export default function RunningPage() {
       lastAction = `Last: ${latestJob?.type || 'automation'} failed`
     }
     
+    // Split accounts by phase (posting vs warmup)
+    const accountsByPhase = deviceAccounts.reduce((acc: any, a: any) => {
+      const phase = licenseAwareStorageService.getAccountPhase(a.id)
+      if (!acc[phase]) acc[phase] = []
+      acc[phase].push(a)
+      return acc
+    }, {} as Record<'posting' | 'warmup', any[]>)
+
+    // Resolve assigned templates
+    const postingTemplateId = deviceTemplates[device.id.toString()]
+    const postingTemplate = templates.find((t: any) => t.id === postingTemplateId)
+    const warmupTemplateId = deviceWarmupTemplates[device.id.toString()]
+    const warmupTemplate = warmupTemplates.find((t: any) => t.id === warmupTemplateId)
+    const warmupDay = deviceWarmupDays[device.id.toString()] || 1
+
+    console.log('🔍 Device processing:', { 
+      deviceId: device.id, 
+      deviceIdType: typeof device.id, 
+      deviceName: device.name 
+    })
+    
+    // Apply instant status override if present
+    const effectiveStatus = deviceStatusOverrides[device.id?.toString?.()] || status
+
     return {
       id: device.id.toString(),
       name: device.name,
-      status: status,
+      status: effectiveStatus,
       accounts: deviceAccounts, // Accounts assigned to this device
+      // Orchestration info
+      posting: {
+        templateId: postingTemplateId,
+        templateName: postingTemplate?.name,
+        accounts: accountsByPhase.posting || []
+      },
+      warmup: {
+        templateId: warmupTemplateId,
+        templateName: warmupTemplate?.name,
+        day: warmupDay,
+        accounts: accountsByPhase.warmup || []
+      },
       lastAction: lastAction,
       currentStep: currentStep,
       model: device.model || "Unknown Model",
@@ -500,7 +702,7 @@ export default function RunningPage() {
         failed: failedJobs.length
       }
     }
-  }), [allDevices, jobs, accounts, deviceTemplates, templates, deviceProgress, forceRender])
+  }), [allDevices, jobs, accounts, deviceTemplates, templates, deviceProgress, activeUsernames, forceRender, deviceStatusOverrides])
 
   // Listen for WebSocket messages for real-time progress updates
   useEffect(() => {
@@ -514,12 +716,38 @@ export default function RunningPage() {
     }
     
     const message = websocket.lastMessage
-    console.log('🔥 RUNNING PAGE - Processing message:', message.type, message.timestamp)
+    
+    // Create a unique message ID to prevent processing the same message multiple times
+    const messageId = `${message.type}-${message.timestamp || Date.now()}-${message.job_id || message.device_id || 'unknown'}`
+    
+    // Check if we've already processed this message
+    if (processedMessagesRef.current.has(messageId)) {
+      console.log('🔄 Message already processed, skipping:', messageId)
+      return
+    }
+    
+    // Mark message as processed (keep only last 100 messages to prevent memory leaks)
+    processedMessagesRef.current.add(messageId)
+    if (processedMessagesRef.current.size > 100) {
+      // Remove oldest messages (first 50)
+      const array = Array.from(processedMessagesRef.current)
+      processedMessagesRef.current = new Set(array.slice(-50))
+    }
+    
+    console.log('🔥 RUNNING PAGE - Processing NEW message:', message.type, message.timestamp)
     console.log('🔥 FULL MESSAGE DATA:', JSON.stringify(message, null, 2))
     
     // Log all message types to see what we're receiving
     console.log('📨 MESSAGE TYPE RECEIVED:', message.type)
     console.log('📨 MESSAGE KEYS:', Object.keys(message))
+    
+    // Special logging for job_update messages
+    if (message.type === 'job_update') {
+      console.log('👤 JOB UPDATE - Username in message:', message.data?.username)
+      console.log('👤 JOB UPDATE - Account ID in message:', message.data?.account_id)
+      console.log('👤 JOB UPDATE - Device ID in message:', message.data?.device_id)
+      console.log('👤 JOB UPDATE - Current step:', message.data?.current_step)
+    }
     
     // Handle job updates from Mac Agent (correct message type)
     if (message.type === 'job_update' && message.data) {
@@ -571,76 +799,216 @@ export default function RunningPage() {
         console.log('✅ NEW DEVICE PROGRESS STATE:', newState)
         return newState
       })
+      
+      // Track active username if provided in WebSocket message
+      if (jobData.username || jobData.account_username || jobData.current_username) {
+        const username = jobData.username || jobData.account_username || jobData.current_username
+        console.log('👤 UPDATING ACTIVE USERNAME for device', targetDeviceId, ':', username)
+        
+        setActiveUsernames(prev => ({
+          ...prev,
+          [targetDeviceId]: {
+            username: username,
+            account_id: jobData.account_id || '',
+            timestamp: Date.now()
+          }
+        }))
+      } else if (jobData.account_id) {
+        // If no username in WebSocket but we have account_id, try to find username from local accounts
+        const account = accounts.find((acc: any) => acc.id === jobData.account_id)
+        if (account && account.username) {
+          console.log('👤 FOUND USERNAME from account_id for device', targetDeviceId, ':', account.username)
+          
+          setActiveUsernames(prev => ({
+            ...prev,
+            [targetDeviceId]: {
+              username: account.username,
+              account_id: jobData.account_id,
+              timestamp: Date.now()
+            }
+          }))
+        }
+      }
+      
+      // Refresh account status data when job updates are received
+      if (accountStatus.open && accountStatus.deviceId === targetDeviceId) {
+        console.log('🔄 Refreshing account status for open modal')
+        refreshAccountStatus(targetDeviceId)
+      }
+    }
+    
+    // Handle account status broadcast (posts/countdown updates)
+    if (message.type === 'account_status_update' && message.device_id) {
+      const deviceId = String(message.device_id)
+      const payload = message.data
+      setAccountStatusData(prev => ({ ...prev, [deviceId]: payload }))
+      if (accountStatus.open && accountStatus.deviceId === deviceId) {
+        setAccountStatus(current => ({ ...current, data: payload }))
+      }
     }
     
     // Handle device status updates
     if (message.type === 'device_status_update') {
       console.log('🔌 Device status update:', message)
-      refetch()
+      // Map backend 'active' to UI 'running' instantly for the affected device
+      const targetId = (message.device_id ?? '').toString()
+      if (targetId) {
+        setDeviceStatusOverrides(prev => ({
+          ...prev,
+          [targetId]: message.status === 'active' ? 'running' : (message.status === 'offline' ? 'stopped' : 'error')
+        }))
+        // Persist override so navigation back keeps the running state
+        try {
+          const raw = localStorage.getItem('fsn_running_devices')
+          const map = (raw ? JSON.parse(raw) : {}) || {}
+          map[targetId] = message.status === 'active' ? 'running' : (message.status === 'offline' ? 'stopped' : 'error')
+          localStorage.setItem('fsn_running_devices', JSON.stringify(map))
+        } catch {}
+        // Clear initializing state for this device once we get a status update
+        setStartingDevices(prev => {
+          const next = new Set(prev)
+          next.delete(targetId)
+          return next
+        })
+      }
+      forceRefreshDevices()
     }
-  }, [websocket?.lastMessage?.timestamp, websocket?.lastMessage?.type, refetch])
+  }, [websocket?.lastMessage, refetch, accounts])
 
   const handleStart = async (deviceId: string) => {
     try {
       console.log('Starting device:', deviceId)
+      console.log('DeviceId type:', typeof deviceId, 'value:', deviceId)
+      
+      // Safety check for device ID
+      if (!deviceId || deviceId === 'undefined' || deviceId === 'null') {
+        console.error('❌ Invalid device ID:', deviceId)
+        alert('Invalid device ID. Please refresh the page and try again.')
+        return
+      }
       
       // Add device to starting state
       setStartingDevices(prev => new Set([...prev, deviceId]))
+
+      // Optimistic UI: flip button to initializing immediately
+      // Also schedule a fallback to flip to running if WS is slow
+      let fallbackTimer: any = setTimeout(() => {
+        console.log('⏱️ WS slow - forcing device running state (optimistic)')
+        forceRefreshDevices()
+      }, 4000)
       
-      // Get assigned template for this device
-      const assignedTemplateId = deviceTemplates[deviceId]
-      let templateData = null
-      
-      if (assignedTemplateId) {
-        const assignedTemplate = templates.find(t => t.id === assignedTemplateId)
-        if (assignedTemplate) {
-          console.log('🎯 Using assigned template:', assignedTemplate.name)
-          templateData = {
-            id: assignedTemplate.id,
-            name: assignedTemplate.name,
-            platform: assignedTemplate.platform,
-            settings: {
-              textPostsPerDay: assignedTemplate.textPostsPerDay || 0,
-              textPostsFile: assignedTemplate.textPostsFile || "",
-              textPostsFileContent: assignedTemplate.textPostsFileContent || "", // Include xlsx file content!
-              photosPostsPerDay: assignedTemplate.photosPostsPerDay || 0,
-              photosFolder: assignedTemplate.photosFolder || "",
-              captionsFile: assignedTemplate.captionsFile || "",
-              captionsFileContent: assignedTemplate.captionsFileContent || "",
-              followsPerDay: assignedTemplate.followsPerDay || 0,
-              likesPerDay: assignedTemplate.likesPerDay || 0,
-              scrollingTimeMinutes: assignedTemplate.scrollingTimeMinutes || 0
-            }
+      // Build posting and warmup payloads
+      const postingTemplateId = deviceTemplates[deviceId]
+      const postingTemplate = templates.find(t => t.id === postingTemplateId)
+      const warmupTemplateId = deviceWarmupTemplates[deviceId]
+      const warmupTemplate = warmupTemplates.find(t => t.id === warmupTemplateId)
+      const warmupDay = deviceWarmupDays[deviceId] || 1
+
+      console.log('🔍 DEBUG - Template IDs:', {
+        deviceId,
+        postingTemplateId,
+        warmupTemplateId,
+        postingTemplate: postingTemplate?.name,
+        warmupTemplate: warmupTemplate?.name,
+        warmupTemplatesCount: warmupTemplates.length
+      })
+
+      // Accounts assigned to this device
+      const deviceAccounts = accounts.filter((a: any) => (a.device?.toString() === deviceId) || (a.device_id?.toString() === deviceId))
+      const postingAccounts = deviceAccounts.filter((a: any) => licenseAwareStorageService.getAccountPhase(a.id) === 'posting')
+      const warmupAccounts = deviceAccounts.filter((a: any) => licenseAwareStorageService.getAccountPhase(a.id) === 'warmup')
+
+      // 1) Start posting job if available (use templates execute endpoint)
+      if (postingTemplate && postingAccounts.length > 0) {
+        const templateData = {
+          id: postingTemplate.id,
+          name: postingTemplate.name,
+          platform: postingTemplate.platform,
+          settings: {
+            textPostsPerDay: postingTemplate.textPostsPerDay || 0,
+            textPostsFile: postingTemplate.textPostsFile || "",
+            textPostsFileContent: postingTemplate.textPostsFileContent || "",
+            photosPostsPerDay: postingTemplate.photosPostsPerDay || 0,
+            photosFolder: postingTemplate.photosFolder || "",
+            captionsFile: postingTemplate.captionsFile || "",
+            captionsFileContent: postingTemplate.captionsFileContent || "",
+            followsPerDay: postingTemplate.followsPerDay || 0,
+            likesPerDay: postingTemplate.likesPerDay || 0,
+            scrollingTimeMinutes: postingTemplate.scrollingTimeMinutes || 0,
+            postingIntervalMinutes: postingTemplate.postingIntervalMinutes || 30
           }
-        } else {
-          console.log('⚠️ Assigned template not found:', assignedTemplateId)
+        }
+
+        await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/templates/${templateData.id}/execute`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            device_id: deviceId, // Send as string, not parseInt
+            account_ids: postingAccounts.map((a: any) => a.id),
+            template_data: templateData,
+          })
+        })
+      }
+
+      // 2) Start warmup job(s) if available (use runs/warmup endpoint per account)
+      if (warmupTemplate && warmupAccounts.length > 0) {
+        const warmupData = {
+          id: warmupTemplate.id,
+          name: warmupTemplate.name,
+          platform: warmupTemplate.platform,
+          day: warmupDay,
+          days_config: warmupTemplate.days_config || warmupTemplate.days || [],
+        }
+
+        const licenseContext = licenseAwareStorageService.getLicenseContext?.() || (window as any).getLicenseContext?.()
+        const licenseId = licenseContext?.licenseKey || 'license_dev'
+
+        console.log('🔥 Starting warmup for accounts:', warmupAccounts.map(a => a.username))
+
+        for (const acc of warmupAccounts) {
+          const warmupPayload = {
+            license_id: licenseId,
+            device_id: deviceId, // Send as string, let backend handle conversion
+            warmup_template_id: parseInt(String(warmupData.id), 10),
+            warmup_template_data: warmupData, // Send full template data
+            account_id: acc.id,
+            posting_template_data: postingTemplate || null, // Include posting template for automatic posting
+          }
+          
+          console.log('🔥 Sending warmup request:', warmupPayload)
+          console.log('🔥 DeviceId type and value:', { type: typeof deviceId, value: deviceId })
+          
+          await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/runs/warmup`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(warmupPayload)
+          })
         }
       } else {
-        console.log('ℹ️ No template assigned to device:', deviceId)
+        console.log('⚠️ No warmup template or warmup accounts found:', {
+          warmupTemplate: warmupTemplate?.name,
+          warmupAccountsCount: warmupAccounts.length
+        })
       }
-      
-      const requestBody = {
-        device_id: deviceId,
-        job_type: "automation",
-        template_data: templateData
-      }
-      
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/devices/${deviceId}/start`, {
+
+      // 3) Start the device itself to update status to "running"
+      console.log('🚀 Starting device to update status...')
+      const deviceStartResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/devices/${deviceId}/start`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody)
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          device_id: deviceId, // Required by StartDeviceRequest model
+          job_type: 'posting', // or 'warmup' based on what's running
+          template_data: postingTemplate || warmupTemplate
+        })
       })
       
-      if (response.ok) {
-        console.log('Device started successfully')
-        if (templateData) {
-          console.log('✅ Device started with template:', templateData.name)
-        }
-        refetch() // Refresh the device list
+      if (deviceStartResponse.ok) {
+        console.log('Device started successfully, status updated to running')
+        clearTimeout(fallbackTimer)
+        forceRefreshDevices() // Force refresh the device list
       } else {
-        const error = await response.json()
+        const error = await deviceStartResponse.json()
         console.error('Failed to start device:', error.detail || error.message || error)
         
         // Show error dialog with troubleshooting tips
@@ -651,16 +1019,17 @@ export default function RunningPage() {
           deviceId: deviceId.toString(),
           showTroubleshooting: true
         })
+        clearTimeout(fallbackTimer)
+        setStartingDevices(prev => {
+          const next = new Set(prev)
+          next.delete(deviceId)
+          return next
+        })
       }
     } catch (error) {
       console.error('Error starting device:', error)
     } finally {
-      // Remove device from starting state
-      setStartingDevices(prev => {
-        const newSet = new Set(prev)
-        newSet.delete(deviceId)
-        return newSet
-      })
+      // Keep device in starting state until WS device_status_update arrives
     }
   }
 
@@ -678,7 +1047,7 @@ export default function RunningPage() {
       
       if (response.ok) {
         console.log('Device paused successfully')
-        refetch() // Refresh the device list
+        forceRefreshDevices() // Force refresh the device list
       } else {
         const error = await response.json()
         console.error('Failed to pause device:', error.detail || error.message || error)
@@ -705,7 +1074,7 @@ export default function RunningPage() {
       
       if (response.ok) {
         console.log('Device stopped successfully')
-        refetch() // Refresh the device list
+        forceRefreshDevices() // Force refresh the device list
       } else {
         const error = await response.json()
         console.error('Failed to stop device:', error.detail || error.message || error)
@@ -871,6 +1240,97 @@ export default function RunningPage() {
     }
   }
 
+  // Get current processing account for a device
+  const getCurrentAccount = (device: RunningDevice) => {
+    // First, check if we have real-time username from WebSocket
+    const activeUsername = activeUsernames[device.id]
+    if (activeUsername && activeUsername.username) {
+      console.log(`👤 Using WebSocket username for device ${device.id}:`, activeUsername.username)
+      return { username: activeUsername.username, id: activeUsername.account_id }
+    }
+    
+    // Find accounts assigned to this device
+    const deviceAccounts = accounts.filter((account: any) => account.device === device.id || account.device_id === device.id)
+    if (deviceAccounts.length === 0) return null
+    
+    // Try to find the most recently active account based on job data
+    const accountIds = deviceAccounts.map((acc: any) => acc.id)
+    const recentJobs = jobs
+      .filter((job: any) => job.account_id && accountIds.includes(job.account_id))
+      .sort((a: any, b: any) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
+    
+    if (recentJobs.length > 0) {
+      const recentAccountId = recentJobs[0].account_id
+      const recentAccount = deviceAccounts.find((acc: any) => acc.id === recentAccountId)
+      if (recentAccount) {
+        // Ensure we return the username from the correct field
+        const username = recentAccount.username || recentAccount.instagram_username || recentAccount.threads_username
+        return { ...recentAccount, username: username }
+      }
+    }
+    
+    // Fallback to first account if no recent jobs
+    const firstAccount = deviceAccounts[0]
+    if (firstAccount) {
+      // Ensure we return the username from the correct field
+      const username = firstAccount.username || firstAccount.instagram_username || firstAccount.threads_username
+      return { ...firstAccount, username: username }
+    }
+    return null
+  }
+
+  // Get today's posts count for a device
+  const getTodayPostsCount = (device: RunningDevice) => {
+    const today = new Date().toISOString().split('T')[0]
+    const deviceAccounts = accounts.filter((account: any) => account.device === device.id || account.device_id === device.id)
+    
+    if (deviceAccounts.length === 0) return 0
+    
+    // Count posts from jobs for this device's accounts today
+    const accountIds = deviceAccounts.map((acc: any) => acc.id)
+    const todayPosts = jobs.filter((job: any) => 
+      job && 
+      job.created_at && 
+      job.created_at.startsWith(today) &&
+      job.account_id && 
+      accountIds.includes(job.account_id) &&
+      (job.type === 'instagram_post_reel' || job.type === 'threads_create_post' || String(job.type).includes('post'))
+    ).length
+    
+    return todayPosts
+  }
+
+  // Refresh account status data
+  const refreshAccountStatus = async (deviceId: string) => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/devices/${deviceId}/account-status`)
+      if (response.ok) {
+        const data = await response.json()
+        setAccountStatusData(prev => ({ ...prev, [deviceId]: data }))
+        return data
+      } else {
+        console.error('Failed to load account status')
+        return null
+      }
+    } catch (e) {
+      console.error('Network error loading account status:', e)
+      return null
+    }
+  }
+
+  // Open account status modal
+  const openAccountStatus = async (deviceId: string) => {
+    // Use cached data if available, otherwise fetch fresh data
+    const cachedData = accountStatusData[deviceId]
+    const data = cachedData || await refreshAccountStatus(deviceId)
+    
+    if (data) {
+      setAccountStatus({ open: true, deviceId, data })
+    } else {
+      setAccountStatus({ open: true, deviceId, data: { error: 'Failed to load account status' } })
+    }
+  }
+
   // Calculate stats
   const runningCount = devices.filter(d => d.status === "running").length
   const pausedCount = devices.filter(d => d.status === "paused").length
@@ -880,9 +1340,9 @@ export default function RunningPage() {
 
   const children = (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
-      {/* Main Header Section - Dark Background */}
-      <div className="relative overflow-hidden bg-gradient-to-r from-black via-gray-900 to-black">
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGRlZnM+CjxwYXR0ZXJuIGlkPSJncmlkIiB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHBhdHRlcm5Vbml0cz0idXNlclNwYWNlT25Vc2UiPgo8cGF0aCBkPSJNIDQwIDAgTCAwIDAgMCA0MCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJyZ2JhKDI1NSwyNTUsMjU1LDAuMDUpIiBzdHJva2Utd2lkdGg9IjEiLz4KPC9wYXR0ZXJuPgo8L2RlZnM+CjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9InVybCgjZ3JpZCkiLz4KPHN2Zz4K')] opacity-10"></div>
+      {/* Main Header Section - Platform Colors */}
+      <PlatformHeader>
+        <div className="absolute inset-0 opacity-10 bg-[length:40px_40px] bg-[image:url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGRlZnM+CjxwYXR0ZXJuIGlkPSJncmlkIiB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHBhdHRlcm5Vbml0cz0idXNlclNwYWNlT25Vc2UiPgo8cGF0aCBkPSJNIDQwIDAgTCAwIDAgMCA0MCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJyZ2JhKDI1NSwyNTUsMjU1LDAuMDUpIiBzdHJva2Utd2lkdGg9IjEiLz4KPC9wYXR0ZXJuPgo8L2RlZnM+CjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9InVybCgjZ3JpZCkiLz4KPHN2Zz4K')]"></div>
         
         <div className="relative px-6 py-12">
           <div className="max-w-7xl mx-auto">
@@ -916,7 +1376,7 @@ export default function RunningPage() {
               
               <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 border border-white/20">
                 <Button 
-                  onClick={() => refetch()}
+                  onClick={() => forceRefreshDevices()}
                   disabled={isLoading}
                   className="bg-white text-black hover:bg-gray-100 border-0 shadow-2xl rounded-2xl px-6 py-3 font-semibold transition-all duration-300 hover:scale-105"
                 >
@@ -936,33 +1396,13 @@ export default function RunningPage() {
 
                 {/* Right side */}
                 <div className="flex items-center space-x-4">
-                  <button 
-                    onClick={() => {
-                      console.log('🧪 Manual test - setting device progress...')
-                      const runningDevice = allDevices.find(d => d.status === "running")
-                      const testDeviceId = runningDevice?.id || "device-1758399156"
-                      console.log('🧪 Testing with device:', testDeviceId)
-                      setDeviceProgress(prev => ({
-                        ...prev,
-                        [testDeviceId]: {
-                          progress: 75,
-                          currentAction: "manual_test_checkpoint",
-                          checkpoint: 9,
-                          timestamp: Date.now()
-                        }
-                      }))
-                    }}
-                    className="px-3 py-1 bg-green-500 text-white rounded text-sm hover:bg-green-600"
-                  >
-                    Test UI
-                  </button>
                   <PlatformSwitch />
                 </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
+      </PlatformHeader>
 
       <div className="max-w-7xl mx-auto px-6 py-8 space-y-8">
         {/* Enhanced Summary Stats */}
@@ -1110,107 +1550,70 @@ export default function RunningPage() {
                         </div>
                       </div>
                       
-                      <div className={`px-4 py-2 rounded-full text-sm font-semibold shadow-sm ${
-                        device.status === "running" 
-                          ? "bg-green-100 text-green-800 border border-green-200" 
-                          : device.status === "error"
-                          ? "bg-red-100 text-red-800 border border-red-200"
-                          : device.status === "paused"
-                          ? "bg-yellow-100 text-yellow-800 border border-yellow-200"
-                          : "bg-gray-100 text-gray-800 border border-gray-200"
-                      }`}>
-                        {device.status === "running" && (
-                          <div className="flex items-center space-x-2">
-                            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                            <span>Running</span>
-                          </div>
-                        )}
-                        {device.status === "stopped" && "Stopped"}
-                        {device.status === "paused" && "Paused"}
-                        {device.status === "error" && (
-                          <div className="flex items-center space-x-2">
-                            <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
-                            <span>Error</span>
-                          </div>
-                        )}
+                      <div className="flex items-center space-x-3">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => openAccountStatus(device.id)}
+                          className="h-8 px-3 text-xs"
+                        >
+                          Accounts
+                        </Button>
+                        <div className={`px-4 py-2 rounded-full text-sm font-semibold shadow-sm ${
+                          device.status === "running" 
+                            ? "bg-green-100 text-green-800 border border-green-200" 
+                            : device.status === "error"
+                            ? "bg-red-100 text-red-800 border border-red-200"
+                            : device.status === "paused"
+                            ? "bg-yellow-100 text-yellow-800 border border-yellow-200"
+                            : "bg-gray-100 text-gray-800 border border-gray-200"
+                        }`}>
+                          {device.status === "running" && (
+                            <div className="flex items-center space-x-2">
+                              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                              <span>Running</span>
+                            </div>
+                          )}
+                          {device.status === "stopped" && "Stopped"}
+                          {device.status === "paused" && "Paused"}
+                          {device.status === "error" && (
+                            <div className="flex items-center space-x-2">
+                              <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+                              <span>Error</span>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
 
-                    {/* Enhanced Progress Section */}
+                    {/* Account Processing Info */}
                     <div className="bg-gradient-to-br from-gray-50 to-gray-100/50 rounded-2xl p-6 mb-6 border border-gray-100">
-                      <div className="flex items-center justify-between mb-4">
-                        <h4 className="font-bold text-gray-900">Automation Progress</h4>
-                        <div className="bg-black text-white px-4 py-2 rounded-full text-sm font-bold shadow-lg">
-                          {getProgressValue(device)}%
-                        </div>
-                      </div>
-                      
-                      {/* Sophisticated Progress Bar */}
-                      <div className="relative mb-4">
-                        <div className="w-full bg-white rounded-full h-4 overflow-hidden shadow-inner border border-gray-200">
-                          <div 
-                            className="h-full bg-gradient-to-r from-gray-700 via-black to-gray-800 rounded-full transition-all duration-1000 ease-out relative"
-                            style={{ width: `${getProgressValue(device)}%` }}
-                          >
-                            {/* Animated shine effect */}
-                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -skew-x-12 animate-pulse"></div>
-                            {/* Progress indicator dot */}
-                            {getProgressValue(device) > 5 && (
-                              <div className="absolute right-1 top-1/2 transform -translate-y-1/2 w-2 h-2 bg-white rounded-full shadow-sm"></div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Real-time Action Status */}
-                      <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
-                        <div className="flex items-center space-x-3">
-                          {/* Activity Indicator */}
-                          <div className="flex space-x-1">
-                            {device.status === "running" ? (
-                              <>
-                                <div className="w-1.5 h-6 bg-black rounded-full animate-pulse"></div>
-                                <div className="w-1.5 h-6 bg-gray-600 rounded-full animate-pulse" style={{ animationDelay: '0.2s' }}></div>
-                                <div className="w-1.5 h-6 bg-gray-400 rounded-full animate-pulse" style={{ animationDelay: '0.4s' }}></div>
-                              </>
-                            ) : (
-                              <>
-                                <div className="w-1.5 h-6 bg-gray-200 rounded-full"></div>
-                                <div className="w-1.5 h-6 bg-gray-200 rounded-full"></div>
-                                <div className="w-1.5 h-6 bg-gray-200 rounded-full"></div>
-                              </>
-                            )}
-                          </div>
-                          
-                          <div className="flex-1">
-                            <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
-                              {device.status === "running" ? "Current Action" : device.status === "stopped" ? "Last Action" : "Status"}
+                      {(() => {
+                        const currentAccount = getCurrentAccount(device)
+                        const postsToday = getTodayPostsCount(device)
+                        
+                        return (
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1">
+                              <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                                Processing Account
+                              </div>
+                              <div className="font-semibold text-gray-900 leading-tight">
+                                {currentAccount ? `@${currentAccount.username || 'Unknown'}` : 'No account assigned'}
+                              </div>
                             </div>
-                            <div className="font-semibold text-gray-900 leading-tight">
-                              {getCurrentAction(device)}
+                            
+                            <div className="text-right">
+                              <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                                Posts Today
+                              </div>
+                              <div className="bg-black text-white px-4 py-2 rounded-full text-sm font-bold shadow-lg">
+                                {postsToday}
+                              </div>
                             </div>
                           </div>
-                          
-                          {/* Status Dot */}
-                          <div className="relative">
-                            {device.status === "running" && (
-                              <>
-                                <div className="w-4 h-4 bg-green-500 rounded-full animate-ping absolute opacity-75"></div>
-                                <div className="w-4 h-4 bg-green-600 rounded-full"></div>
-                              </>
-                            )}
-                            {device.status === "stopped" && (
-                              <div className="w-4 h-4 bg-gray-400 rounded-full"></div>
-                            )}
-                            {device.status === "error" && (
-                              <div className="w-4 h-4 bg-red-500 rounded-full animate-pulse"></div>
-                            )}
-                            {device.status === "paused" && (
-                              <div className="w-4 h-4 bg-yellow-500 rounded-full"></div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
+                        )
+                      })()}
                     </div>
 
                     {/* Control Buttons */}
@@ -1335,9 +1738,238 @@ export default function RunningPage() {
         open={isAddDeviceDialogOpen}
         onOpenChange={setIsAddDeviceDialogOpen}
         onDeviceAdded={() => {
-          refetch() // Refresh the devices list
+          forceRefreshDevices() // Force refresh the devices list
         }}
       />
+
+      {/* Account Status Modal */}
+      {accountStatus.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setAccountStatus({ open: false })}>
+          <div className="w-full max-w-lg bg-white rounded-xl shadow-xl p-4" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center space-x-3">
+                <div className="text-base font-semibold">Accounts Status</div>
+                {/* View switching tabs with slide animation */}
+                <div className="relative flex bg-gray-100 rounded-md p-0.5">
+                  {/* Sliding background indicator */}
+                  <div 
+                    className={`absolute top-0.5 bottom-0.5 w-8 bg-white rounded-full shadow-sm transition-transform duration-200 ease-in-out ${
+                      accountsView === 'posting' ? 'translate-x-0' : 'translate-x-8'
+                    }`}
+                  />
+                  
+                  <button
+                    className={`relative z-10 px-2 py-1 text-xs font-medium transition-colors ${
+                      accountsView === 'posting' 
+                        ? 'text-black' 
+                        : 'text-gray-600 hover:text-black'
+                    }`}
+                    onClick={() => setAccountsView('posting')}
+                  >
+                    📝
+                  </button>
+                  <button
+                    className={`relative z-10 px-2 py-1 text-xs font-medium transition-colors ${
+                      accountsView === 'warmup' 
+                        ? 'text-black' 
+                        : 'text-gray-600 hover:text-black'
+                    }`}
+                    onClick={() => setAccountsView('warmup')}
+                  >
+                    🔥
+                  </button>
+                </div>
+              </div>
+              <div className="flex items-center space-x-2">
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                <span className="text-xs text-gray-500">Live</span>
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  className="h-7 px-2 text-xs"
+                  onClick={() => accountStatus.deviceId && refreshAccountStatus(accountStatus.deviceId)}
+                >
+                  ↻
+                </Button>
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  className="h-7 px-2 text-xs"
+                  onClick={() => setAccountStatus({ open: false })}
+                >
+                  ✕
+                </Button>
+              </div>
+            </div>
+            {(() => {
+              // Use real-time data if available, otherwise fall back to modal data
+              const currentData = accountStatusData[accountStatus.deviceId!] || accountStatus.data
+              
+              if (!currentData || currentData.error) {
+                return <div className="text-sm text-red-600">{currentData?.error || 'No data'}</div>
+              }
+              
+              return (
+                <div className="space-y-1 max-h-[50vh] overflow-y-auto">
+                  {(currentData.accounts || [])
+                    .filter((acc: any) => {
+                      // Filter accounts based on selected view
+                      if (accountsView === 'warmup') {
+                        return acc.account_phase === 'warmup'
+                      } else {
+                        return acc.account_phase === 'posting'
+                      }
+                    })
+                    .map((acc: any) => {
+                  // Check if this account is currently processing
+                  const isCurrentlyProcessing = activeUsernames[accountStatus.deviceId!]?.username === acc.username
+                  
+                  return (
+                    <div key={acc.id || acc.username} className={`border rounded-lg p-3 ${
+                      isCurrentlyProcessing ? 'bg-blue-50 border-blue-200' : 'bg-gray-50'
+                    }`}>
+                      {/* Account Header */}
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center space-x-2">
+                          <span className="font-semibold text-gray-900">@{acc.username}</span>
+                          {isCurrentlyProcessing && (
+                            <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                              PROCESSING
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {acc.last_post_time ? new Date(acc.last_post_time).toLocaleTimeString() : '—'}
+                        </div>
+                      </div>
+
+                      {/* Stats and Status */}
+                      <div className="flex items-center justify-between">
+                        {/* Stats Section */}
+                        <div className="flex items-center space-x-4">
+                          {accountsView === 'warmup' ? (
+                            <>
+                              <div className="text-center">
+                                <div className="text-xs text-gray-500">Likes</div>
+                                <div className="font-semibold">{acc.warmup_stats?.likes_today || 0}</div>
+                              </div>
+                              <div className="text-center">
+                                <div className="text-xs text-gray-500">Follows</div>
+                                <div className="font-semibold">{acc.warmup_stats?.follows_today || 0}</div>
+                              </div>
+                              <div className="text-center">
+                                <div className="text-xs text-gray-500">Day</div>
+                                <div className="font-semibold">{acc.current_day || 1}</div>
+                              </div>
+                            </>
+                          ) : (
+                            <div className="text-center">
+                              <div className="text-xs text-gray-500">Posts</div>
+                              <div className="font-semibold">{acc.posts_today} / {typeof acc.daily_target === 'number' && acc.daily_target > 0 ? acc.daily_target : acc.posts_total}</div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Status Section */}
+                        <div className="text-center">
+                          <div className="text-xs text-gray-500 mb-1">Status</div>
+                          {(() => {
+                            const accountKey = acc.id || acc.username
+                            
+                            if (accountsView === 'warmup') {
+                              // Warmup view - show warmup-specific status
+                              const warmupCountdownSeconds = warmupCountdownTimers[accountKey]
+                              
+                              if (isCurrentlyProcessing && warmupCountdownSeconds !== undefined && warmupCountdownSeconds > 0) {
+                                // Show warmup scrolling countdown
+                                const minutes = Math.floor(warmupCountdownSeconds / 60)
+                                const seconds = warmupCountdownSeconds % 60
+                                const timeStr = minutes > 0 ? `${minutes}:${seconds.toString().padStart(2, '0')}` : `${seconds}s`
+                                const isUrgent = warmupCountdownSeconds <= 60 // Last minute
+                                
+                                return (
+                                  <div className="flex flex-col items-center space-y-1">
+                                    <div className="relative">
+                                      <div className={`w-2 h-2 rounded-full absolute animate-ping ${isUrgent ? 'bg-blue-500' : 'bg-purple-500'}`}></div>
+                                      <div className={`w-2 h-2 rounded-full relative ${isUrgent ? 'bg-blue-600' : 'bg-purple-600'}`}></div>
+                                    </div>
+                                    <div className={`font-mono font-bold text-sm ${isUrgent ? 'text-blue-600' : 'text-purple-600'}`}>
+                                      {timeStr}
+                                    </div>
+                                  </div>
+                                )
+                              } else if (acc.warmup_completed_today) {
+                                return (
+                                  <div className="flex flex-col items-center space-y-1">
+                                    <div className="relative">
+                                      <div className="w-2 h-2 bg-green-500 rounded-full animate-ping absolute"></div>
+                                      <div className="w-2 h-2 bg-green-600 rounded-full relative"></div>
+                                    </div>
+                                    <div className="font-bold text-green-600 text-sm">
+                                      DONE
+                                    </div>
+                                  </div>
+                                )
+                              } else {
+                                return (
+                                  <div className="flex flex-col items-center space-y-1">
+                                    <div className="relative">
+                                      <div className="w-2 h-2 bg-orange-500 rounded-full animate-ping absolute"></div>
+                                      <div className="w-2 h-2 bg-orange-600 rounded-full relative"></div>
+                                    </div>
+                                    <div className="font-bold text-orange-600 text-sm">
+                                      READY
+                                    </div>
+                                  </div>
+                                )
+                              }
+                            } else {
+                              // Posting view - show posting cooldown status
+                              const countdownSeconds = countdownTimers[accountKey]
+                              
+                              if (countdownSeconds !== undefined && countdownSeconds > 0) {
+                                const minutes = Math.floor(countdownSeconds / 60)
+                                const seconds = countdownSeconds % 60
+                                const timeStr = minutes > 0 ? `${minutes}:${seconds.toString().padStart(2, '0')}` : `${seconds}s`
+                                const isUrgent = countdownSeconds <= 30 // Last 30 seconds
+                                
+                                return (
+                                  <div className="flex flex-col items-center space-y-1">
+                                    <div className="relative">
+                                      <div className={`w-2 h-2 rounded-full absolute animate-ping ${isUrgent ? 'bg-red-500' : 'bg-orange-500'}`}></div>
+                                      <div className={`w-2 h-2 rounded-full relative ${isUrgent ? 'bg-red-600' : 'bg-orange-600'}`}></div>
+                                    </div>
+                                    <div className={`font-mono font-bold text-sm ${isUrgent ? 'text-red-600' : 'text-orange-600'}`}>
+                                      {timeStr}
+                                    </div>
+                                  </div>
+                                )
+                              } else {
+                                return (
+                                  <div className="flex flex-col items-center space-y-1">
+                                    <div className="relative">
+                                      <div className="w-2 h-2 bg-green-500 rounded-full animate-ping absolute"></div>
+                                      <div className="w-2 h-2 bg-green-600 rounded-full relative"></div>
+                                    </div>
+                                    <div className="font-bold text-green-600 text-sm">
+                                      READY
+                                    </div>
+                                  </div>
+                                )
+                              }
+                            }
+                          })()}
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+                </div>
+              )
+            })()}
+          </div>
+        </div>
+      )}
     </div>
   )
 
